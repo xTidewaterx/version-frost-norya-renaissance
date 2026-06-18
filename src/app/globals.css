@@ -1,71 +1,263 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
 
-@font-face {
-  font-family: "Playfair Display";
-  src: var(--font-playfair) format("woff2");
-  font-display: swap;
+/* For Playfair Display */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');
+
+/* OR for Lora */
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap');
+
+
+/** Give your App a height of `100%`. Keep other CSS properties in the below selector as it is. */
+
+
+
+html,
+body {
+  height: 100%;
 }
 
-
-
-@font-face {
-  font-family: "Inter";
-  src: var(--font-inter) format("woff2");
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Libre Baskerville";
-  src: var(--font-baskerville) format("woff2");
-  font-display: swap;
-}
 
 :root {
-  --color-cream: #faf8f5;
-  --color-warm: #f5f0e1;
-  --color-charcoal: #1a1a1a;
-  --color-navy: #1e3a5f;
-  --color-gold: #c9a227;
-  --font-playfair: "Playfair Display", serif;
-  --font-inter: "Inter", sans-serif;
-  --font-baskerville: "Libre Baskerville", serif;
+  --background: #ffffff;
+  --foreground: #171717;
+  --snow: #f7f8f6;
+  --mist: #e6eae7;
+  --stone-text: #1f2a2a;
+  --muted-text: #5a6767;
+  --fjord-blue: #16354a;
+  --fjord-blue-hover: #11293a;
+  --fjord-blue-active: #0b1d29;
+  --fjord-focus: #4f7690;
+  --nordic-gold: #ffe604;
+  --nordic-gold-hover: #b38621;
+  --nordic-gold-active: #976d17;
+  /* Scandinavian Cold Palette */
+  --ice-deep: #0a2342;
+  --ice-medium: #1b3b5f;
+  --glacial-white: #f8fbfd;
+  --arctic-mist: #e8f0f5;
+  --norwegian-ice: #a8d0e6;
+  --charcoal-text: #1a1f29;
+  --border-cool: #d1dce5;
+  --norwegian-gold: #d4af37;
 }
+
+
 
 @theme inline {
-  --color-background: var(--color-cream);
-  --color-foreground: var(--color-charcoal);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
-  --font-serif: var(--font-playfair);
+  --font-mono: var(--font-geist-mono);
+    --font-roboto: var(--font-roboto);
+  --font-merriweather: var(--font-merriweather);
+  --color-ice-deep: var(--ice-deep);
+  --color-ice-medium: var(--ice-medium);
+  --color-glacial-white: var(--glacial-white);
+  --color-arctic-mist: var(--arctic-mist);
+  --color-norwegian-ice: var(--norwegian-ice);
+  --color-charcoal-text: var(--charcoal-text);
+  --color-border-cool: var(--border-cool);
+  --color-norwegian-gold: var(--norwegian-gold);
+
+
 }
 
-html {
-  scroll-behavior: smooth;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
 }
 
 body {
-  font-family: var(--font-inter);
-  background: var(--color-cream);
-  color: var(--color-charcoal);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+.root {
+  height: 100%;
+}
+
+#__next {
+  height: 100%;
+}
+
+
+
+.font-roboto {
+  font-family: 'Roboto', sans-serif;
+}
+
+.font-playfair {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-lora {
+  font-family: 'Lora', serif;
+}
+
+.font-raleway {
+  font-family: 'Raleway', sans-serif;
+}
+
+.font-manrope {
+  font-family: 'Manrope', sans-serif;
+}
+
+.font-oswald {
+  font-family: 'Oswald', sans-serif;
+}
+
+.productEditButton {
+
+  color: white;
+  
+}
+
+
+
+.font-strong {
+  font-weight: 900;
+}
+
+
+.mainBanner-cover {
+  width: 100%;
+  height: 500px;
+
+  /* ✅ Use a simple fallback-compatible background-image */
+  background-image: url("https://firebasestorage.googleapis.com/v0/b/norland-a7730.appspot.com/o/images%2Fmountain%20blue.jpg?alt=media&token=dd43f78b-0f1a-4193-bab4-8ed6862eb314");
+
+
+
+  background-image: url("https://firebasestorage.googleapis.com/v0/b/norland-a7730.appspot.com/o/images%2Fmountain%20blue.jpg?alt=media&token=dd43f78b-0f1a-4193-bab4-8ed6862eb314");
+
+
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  /* ✅ Optional: visual debug */
+  /* border: 2px dashed red;
+     background-color: yellow; */
+
+  /* ✅ Optional: Performance hint */
+  will-change: transform;
+}
+
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/** Give your App a height of `100%`. Keep other CSS properties in the below selector as it is. */
+.root {
+  height: 100%;
+}
+
+#__next {
+  height: 100%;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.font-playfair {
-  font-family: var(--font-playfair);
+/* 
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+*/
+
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
-.font-inter {
-  font-family: var(--font-inter);
+a,
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+summary,
+label[for] {
+  cursor: pointer;
 }
 
-.font-baskerville {
-  font-family: var(--font-baskerville);
+button:disabled,
+input:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
-@keyframes fade-in-up {
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+.crop-container {
+  position: relative;
+  width: 100%;
+  height: 16rem; /* h-64 */
+  overflow: hidden;
+}
+
+.crop-mask {
+  border-radius: 50%;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  width: 200px;
+  height: 200px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  position: absolute;
+  border: 2px dashed white;
+}
+
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #003366; /* US Navy-inspired blue */
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+@keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -73,77 +265,132 @@ body {
   }
 }
 
-@keyframes bounce-slow {
-  0%, 100% {
-    transform: translateY(0) translateX(-50%);
-  }
-  50% {
-    transform: translateY(-10px) translateX(-50%);
-  }
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s ease-out forwards;
 }
-
-.animate-fade-in-up {
-  animation: fade-in-up 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  opacity: 0;
-}
-
-.animation-delay-100 {
-  animation-delay: 0.1s;
-}
-
-.animation-delay-200 {
-  animation-delay: 0.2s;
-}
-
-.animation-delay-300 {
-  animation-delay: 0.3s;
-}
-
-.animate-bounce-slow {
-  animation: bounce-slow 3s ease-in-out infinite;
-  transform: translateX(-50%);
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--color-warm);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-navy);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gold);
-}
-
-::selection {
-  background: var(--color-gold);
-  color: var(--color-charcoal);
-}
-
-*:focus-visible {
-  outline: 2px solid var(--color-gold);
-  outline-offset: 2px;
-}
-
-img {
-  transition: opacity 0.5s ease;
+.animation-fill-forwards {
+  animation-fill-mode: forwards;
 }
 
 
-.font-playfair {
-  font-family: var(--font-playfair);
+
+.filter-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: #003366;
+  opacity: 0.3;
+  z-index: 10;
+  pointer-events: none; /* Avoids capturing clicks */
 }
 
-.font-prata {
-  font-family: var(--font-prata);
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 18px;            /* Horizontal scrollbar */
+  width: 18px;             /* Vertical scrollbar */
 }
 
-.font-merriweather {
-  font-family: var(--font-merriweather);
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #e0e7ff;     /* Soft blue-gray backdrop */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #1e3a8a; /* Rich dark blue thumb */
+  border-radius: 10px;
+  border: 3px solid #e0e7ff; /* Match track background for padding effect */
+  background-clip: content-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #172554; /* Deepened blue for hover */
+}
+
+.apple-superellipse {
+  border-radius: 26% / 34%;
+}
+
+.btn-scandi-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: var(--fjord-blue);
+  color: var(--snow);
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+  transition: background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  box-shadow: 0 10px 24px rgba(47, 93, 108, 0.14);
+}
+
+.btn-scandi-primary:hover {
+  background-color: var(--fjord-blue-hover);
+  transform: translateY(-1px);
+}
+
+.btn-scandi-primary:active {
+  background-color: var(--fjord-blue-active);
+  transform: translateY(0);
+}
+
+.btn-scandi-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(247, 248, 246, 0.78);
+  background-color: rgba(17, 24, 26, 0.28);
+  color: var(--snow);
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.btn-scandi-secondary:hover {
+  background-color: rgba(17, 24, 26, 0.46);
+  border-color: rgba(247, 248, 246, 0.9);
+  transform: translateY(-1px);
+}
+
+.btn-scandi-secondary:active {
+  transform: translateY(0);
+}
+
+.btn-scandi-primary:focus-visible,
+.btn-scandi-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--snow), 0 0 0 4px var(--fjord-focus);
+}
+
+.btn-banner-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: var(--nordic-gold);
+  color: #182021;
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+  transition: background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  box-shadow: 0 12px 28px rgba(24, 32, 33, 0.28);
+}
+
+.btn-banner-gold:hover {
+  background-color: var(--nordic-gold-hover);
+  transform: translateY(-1px);
+}
+
+.btn-banner-gold:active {
+  background-color: var(--nordic-gold-active);
+  transform: translateY(0);
+}
+
+.btn-banner-gold:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--snow), 0 0 0 4px rgba(216, 178, 74, 0.55);
 }

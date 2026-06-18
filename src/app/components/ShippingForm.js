@@ -1,0 +1,606 @@
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
+import CreateShipmentButton from "../utils/CreateShipmentButton";
+
+export default function ShippingForm({ onShippingSelected }) {
+  const [step, setStep] = useState(1);
+  const [userInfo, setUserInfo] = useState({ name: "", email: "" });
+  const [emailError, setEmailError] = useState("");
+  const [query, setQuery] = useState("");
+  const [streetQuery, setStreetQuery] = useState("");
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [streetSuggestions, setStreetSuggestions] = useState([]);
+  const [servicePoints, setServicePoints] = useState([]);
+  const [loadingServicePoints, setLoadingServicePoints] = useState(false);
+  const [serviceError, setServiceError] = useState(null);
+  const [selectedServicePoint, setSelectedServicePoint] = useState(null);
+  const [createShipmentStatus, setCreateShipmentStatus] = useState(null);
+  
+  //basically use a button to take all shipping data and send to backend to create a shipment, then return the created shipment details to parent component which can add it to cart as a line item with metadata for fulfillment at checkout
+  const [shippingData, setShippingData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    street: "",
+    streetNumber: "",
+    district: "",
+    city: "",
+    postcode: "",
+    country: "DK", // Default to Denmark
+  });
+  const typingTimeout = useRef(null);
+  const streetTypingTimeout = useRef(null);
+  const postalCodeTimeout = useRef(null);
+  const shippingDataRef = useRef(shippingData);
+
+  // Convert country names to ISO country codes
+  function normalizeCountryCode(countryInput) {
+    if (!countryInput) return "DK"; // Default to DK, not NO
+    const input = countryInput.toString().trim().toUpperCase();
+    
+    const countryMap = {
+      'DANMARK': 'DK',
+      'DENMARK': 'DK',
+      'NORGE': 'NO',
+      'NORWAY': 'NO',
+      'SVERIGE': 'SE',
+      'SWEDEN': 'SE',
+      'FINLAND': 'FI',
+      'SUOMI': 'FI',
+      'DK': 'DK',
+      'NO': 'NO',
+      'SE': 'SE',
+      'FI': 'FI',
+    };
+
+    return countryMap[input] || input.slice(0, 2).toUpperCase() || "DK"; // Default to DK
+  }
+
+  async function fetchSuggestions(q) {
+    if (q.length < 2) return setAddressSuggestions([]);
+    try {
+      // Add country context based on current selection or default to Denmark
+      let searchQuery = q;
+      const currentCountry = shippingDataRef.current?.country || "DK";
+      
+      // Don't add country if already specified
+      if (!q.toLowerCase().includes('denmark') && 
+          !q.toLowerCase().includes('danmark') &&
+          !q.toLowerCase().includes('norge') &&
+          !q.toLowerCase().includes('norway') &&
+          !q.toLowerCase().includes('sweden') &&
+          !q.toLowerCase().includes('sverige') &&
+          !q.toLowerCase().includes('finland') &&
+          !q.toLowerCase().includes('suomi')) {
+        // Add country context to help Nominatim narrow results
+        if (currentCountry === "NO") searchQuery = `${q}, Norway`;
+        else if (currentCountry === "SE") searchQuery = `${q}, Sweden`;
+        else if (currentCountry === "FI") searchQuery = `${q}, Finland`;
+        else searchQuery = `${q}, Denmark`;
+      }
+      
+      const res = await fetch(`/api/address?q=${encodeURIComponent(searchQuery)}`);
+      const data = await res.json();
+      console.log("Address suggestions received:", data?.length || 0);
+      if (Array.isArray(data)) setAddressSuggestions(data.slice(0, 6));
+      else setAddressSuggestions([]);
+    } catch {
+      setAddressSuggestions([]);
+    }
+  }
+
+  async function fetchStreetSuggestions(q) {
+    if (q.length < 2) return setStreetSuggestions([]);
+    try {
+      // Search for streets with country context
+      let searchQuery = q;
+      const currentCountry = shippingDataRef.current?.country || "DK";
+      
+      if (!q.toLowerCase().includes('denmark') && 
+          !q.toLowerCase().includes('danmark') &&
+          !q.toLowerCase().includes('norge') &&
+          !q.toLowerCase().includes('norway') &&
+          !q.toLowerCase().includes('sweden') &&
+          !q.toLowerCase().includes('sverige') &&
+          !q.toLowerCase().includes('finland') &&
+          !q.toLowerCase().includes('suomi')) {
+        if (currentCountry === "NO") searchQuery = `${q}, Norway`;
+        else if (currentCountry === "SE") searchQuery = `${q}, Sweden`;
+        else if (currentCountry === "FI") searchQuery = `${q}, Finland`;
+        else searchQuery = `${q}, Denmark`;
+      }
+      
+      const res = await fetch(`/api/address?q=${encodeURIComponent(searchQuery)}`);
+      const data = await res.json();
+      console.log("Street suggestions received:", data?.length || 0);
+      if (Array.isArray(data)) setStreetSuggestions(data.slice(0, 6));
+      else setStreetSuggestions([]);
+    } catch {
+      setStreetSuggestions([]);
+    }
+  }
+
+  // Fetch postal code information using free Nominatim API
+  async function fetchPostalCodeInfo(postalCode, countryCode = "DK") {
+    // This function is no longer used - postal code is entered manually
+    // Kept for backward compatibility if needed later
+    return;
+  }
+
+  function handleSelect(s) {
+    setQuery(s.display_name);
+    setAddressSuggestions([]);
+    
+    console.log("Selected address suggestion:", s); // Debug log
+    
+    if (s.address) {
+      // Normalize country code from address object
+      const countryCode = normalizeCountryCode(s.address.country_code || s.address.country || "DK");
+      
+      // Extract postcode - try multiple field names
+      const postcode = s.address.postcode || 
+                      s.address.postal_code || 
+                      s.address.zipcode || 
+                      "";
+      
+      const streetValue = s.address.road || s.address.name || "";
+      
+      console.log("✅ Address object found - country:", countryCode, "postcode:", postcode);
+      
+      setShippingData(prev => ({
+        ...prev,
+        street: streetValue,
+        streetNumber: s.address.house_number || "",
+        district: s.address.suburb || s.address.neighbourhood || s.address.hamlet || "",
+        city: s.address.city || s.address.town || s.address.village || "",
+        postcode: postcode,
+        country: countryCode,
+      }));
+      
+      // Update streetQuery with the selected street
+      setStreetQuery(streetValue);
+      
+      // If we got a postcode from address object, auto-fetch service points
+      if (postcode && postcode.length >= 4) {
+        console.log("📍 Auto-fetching service points for postcode:", postcode, countryCode);
+        setTimeout(() => fetchServicePoints(postcode, countryCode), 500);
+      }
+    } else {
+      // Fallback: parse display_name string
+      console.log("⚠️ No address object, parsing display_name:", s.display_name);
+      
+      // Try to extract postcode from display_name - often formatted as "Street, PostcodeCity, Country"
+      let postcode = "";
+      const postcodeMatch = s.display_name.match(/\b(\d{4,5})\b/);
+      if (postcodeMatch) {
+        postcode = postcodeMatch[1];
+        console.log("Extracted postcode from display_name:", postcode);
+      }
+      
+      const parts = s.display_name.split(",").map(p => p.trim());
+      const lastPart = parts[parts.length - 1] || "";
+      const countryCode = normalizeCountryCode(lastPart);
+      
+      console.log("Parsed address parts:", { parts, lastPart, countryCode });
+      
+      setShippingData(prev => ({
+        ...prev,
+        streetNumber: parts[0] || "",
+        street: parts[1] || "",
+        district: parts[2] || "",
+        city: parts[3] || parts[4] || "",
+        postcode: postcode,
+        country: countryCode,
+      }));
+      
+      // If we extracted postcode, auto-fetch service points
+      if (postcode && postcode.length >= 4) {
+        console.log("📍 Auto-fetching service points for postcode:", postcode, countryCode);
+        setTimeout(() => fetchServicePoints(postcode, countryCode), 500);
+      }
+    }
+  }
+
+  function handleChange(e) {
+    const value = e.target.value;
+    setQuery(value);
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => fetchSuggestions(value), 400);
+  }
+
+  function handleStreetChange(e) {
+    const value = e.target.value;
+    setStreetQuery(value);
+    setShippingData(prev => ({ ...prev, street: value }));
+    if (streetTypingTimeout.current) clearTimeout(streetTypingTimeout.current);
+    streetTypingTimeout.current = setTimeout(() => fetchStreetSuggestions(value), 400);
+  }
+
+  function handleSelectStreet(s) {
+    setStreetQuery(s.display_name);
+    setStreetSuggestions([]);
+    
+    console.log("Selected street suggestion:", s);
+    
+    if (s.address) {
+      const countryCode = normalizeCountryCode(s.address.country_code || s.address.country || "DK");
+      const postcode = s.address.postcode || 
+                      s.address.postal_code || 
+                      s.address.zipcode || 
+                      "";
+      
+      setShippingData(prev => ({
+        ...prev,
+        street: s.address.road || s.address.name || "",
+        streetNumber: s.address.house_number || "",
+        district: s.address.suburb || s.address.neighbourhood || s.address.hamlet || "",
+        city: s.address.city || s.address.town || s.address.village || "",
+        postcode: postcode,
+        country: countryCode,
+      }));
+      
+      if (postcode && postcode.length >= 4) {
+        console.log("📍 Auto-fetching service points for postcode:", postcode, countryCode);
+        setTimeout(() => fetchServicePoints(postcode, countryCode), 500);
+      }
+    } else {
+      const parts = s.display_name.split(",").map(p => p.trim());
+      const lastPart = parts[parts.length - 1] || "";
+      const countryCode = normalizeCountryCode(lastPart);
+      
+      let postcode = "";
+      const postcodeMatch = s.display_name.match(/\b(\d{4,5})\b/);
+      if (postcodeMatch) {
+        postcode = postcodeMatch[1];
+      }
+      
+      setShippingData(prev => ({
+        ...prev,
+        street: parts[0] || "",
+        streetNumber: parts[1] || "",
+        district: parts[2] || "",
+        city: parts[3] || "",
+        postcode: postcode,
+        country: countryCode,
+      }));
+      
+      if (postcode && postcode.length >= 4) {
+        setTimeout(() => fetchServicePoints(postcode, countryCode), 500);
+      }
+    }
+  }
+
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  }
+
+  function goToShipping() {
+    const trimmedEmail = userInfo.email.trim();
+
+    if (!isValidEmail(trimmedEmail)) {
+      setEmailError("Skriv inn en gyldig e-postadresse.");
+      return;
+    }
+
+    setEmailError("");
+    setShippingData(prev => ({ ...prev, ...userInfo, email: trimmedEmail }));
+    setStep(2);
+  }
+
+  function handleSave() {
+    // Normalize country code before saving
+    const normalizedCountry = normalizeCountryCode(shippingData.country);
+    const finalShippingData = { ...shippingData, country: normalizedCountry };
+    
+    console.log("FINAL DATASET:", finalShippingData);
+    setShippingData(finalShippingData);
+    
+    // After saving address, fetch available service points
+    setStep(3);
+    // persist to localStorage
+    try { localStorage.setItem("norya_shipping", JSON.stringify(finalShippingData)); } catch (e) {}
+    fetchServicePoints(finalShippingData.postcode, normalizedCountry);
+  }
+
+  async function fetchServicePoints(postcode, country_code = "DK") {
+    setLoadingServicePoints(true);
+    setServiceError(null);
+    try {
+      console.log("🚀 Fetching service points for:", { postcode, country_code });
+      const res = await fetch("/api/shipmondo/service-points", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postcode, country_code }),
+      });
+      const data = await res.json();
+      console.log("✅ Service points response:", data);
+      if (data.options && data.options.length > 0) {
+        console.log("📍 Found", data.options.length, "service points");
+        setServicePoints(data.options);
+        
+        // Auto-fill city and district from first service point
+        const firstPoint = data.options[0];
+        console.log("📍 Auto-filling from first service point:", { city: firstPoint.city, district: firstPoint.city });
+        setShippingData(prev => ({
+          ...prev,
+          city: firstPoint.city || prev.city,
+          district: firstPoint.city || prev.district,
+        }));
+      } else {
+        console.warn("⚠️ No options in response");
+        setServicePoints([]);
+      }
+    } catch (err) {
+      console.error("❌ Failed to fetch service points:", err);
+      setServiceError(String(err));
+      setServicePoints([]);
+    } finally {
+      setLoadingServicePoints(false);
+    }
+  }
+
+  function handleSelectShipping(opt) {
+    const selection = { 
+      id: opt.id, 
+      name: opt.name, 
+      cost: opt.cost, 
+      details: opt,
+      // Include all customer shipping data
+      customerData: shippingData 
+    };
+    // Don't call parent callback yet - just save and show review
+    setSelectedServicePoint(selection);
+    setStep(4);
+  }
+
+  function confirmAndProceed() {
+    if (selectedServicePoint && typeof onShippingSelected === "function") {
+      onShippingSelected(selectedServicePoint);
+    }
+  }
+
+   const inputClasses = "w-full p-3 rounded-xl border border-border-cool bg-white text-charcoal-text placeholder-gray-500 focus:ring-2 focus:ring-ice-deep focus:outline-none transition-all duration-300 font-manrope";
+   const cardClasses = "rounded-3xl shadow-2xl bg-white p-8 space-y-6 text-charcoal-text";
+   const buttonClasses = "w-full bg-ice-deep hover:bg-ice-medium text-glacial-white p-4 rounded-2xl font-manrope font-bold shadow-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]";
+
+  useEffect(() => {
+    // load saved shipping data if available
+    try {
+      const saved = localStorage.getItem("norya_shipping");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setShippingData(prev => ({ ...prev, ...parsed }));
+        // Also set streetQuery from saved street field
+        if (parsed.street) {
+          setStreetQuery(parsed.street);
+        }
+      }
+      // Don't auto-proceed with previously selected shipping - let user choose again
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  // Keep ref updated with current shipping data
+  useEffect(() => {
+    shippingDataRef.current = shippingData;
+  }, [shippingData]);
+
+return (
+    <div className="max-w-xl mx-auto p-6">
+      {step === 1 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={cardClasses}>
+          <h2 className="text-2xl font-playfair font-bold text-ice-deep tracking-wide">Dine detaljer</h2>
+          <div>
+            <label className="font-oswald font-bold">Navn</label>
+            <input className={inputClasses} value={userInfo.name} onChange={e => setUserInfo({ ...userInfo, name: e.target.value })} />
+          </div>
+          <div>
+            <label className="font-oswald font-bold">E-post</label>
+            <input
+              type="email"
+              autoComplete="email"
+              className={inputClasses}
+              value={userInfo.email}
+              onChange={e => {
+                setUserInfo({ ...userInfo, email: e.target.value });
+                if (emailError) setEmailError("");
+              }}
+            />
+            {emailError && <p className="mt-2 text-sm text-red-600">{emailError}</p>}
+          </div>
+          <button onClick={goToShipping} className={buttonClasses}>Neste</button>
+        </motion.div>
+      )}
+
+      {step === 2 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={cardClasses}>
+          <h2 className="text-2xl font-playfair font-bold text-ice-deep tracking-wide">Fraktinformasjon</h2>
+          <div>
+            <label className="font-oswald font-bold">Telefonnummer</label>
+            <input className={inputClasses} value={shippingData.phone} onChange={e => setShippingData({ ...shippingData, phone: e.target.value })} />
+          </div>
+          <div>
+            <label className="font-oswald font-bold">Adresse</label>
+            <input className={inputClasses} value={query} onChange={handleChange} placeholder="Skriv inn adresse..." />
+          </div>
+          {addressSuggestions.length > 0 && (
+            <motion.ul initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="bg-arctic-mist border border-border-cool rounded-xl shadow-md p-2 space-y-1 max-h-64 overflow-y-auto">
+              {addressSuggestions.map(s => {
+                const postcode = s.address?.postcode || '';
+                const city = s.address?.city || s.address?.town || '';
+                const country = s.address?.country_code?.toUpperCase() || '';
+                const secondaryInfo = [postcode, city, country].filter(Boolean).join(', ');
+                
+                return (
+                  <li 
+                    key={s.place_id} 
+                    onClick={() => handleSelect(s)} 
+                    className="p-3 hover:bg-norwegian-ice cursor-pointer rounded-lg transition-all border-l-4 border-transparent hover:border-ice-deep"
+                  >
+                    <div className="font-lora text-charcoal-text">{s.display_name}</div>
+                    {secondaryInfo && <div className="text-xs text-charcoal-text mt-1">{secondaryInfo}</div>}
+                  </li>
+                );
+              })}
+            </motion.ul>
+          )}
+          <div>
+            <label className="font-oswald font-bold">Gate</label>
+            <input className={inputClasses} value={streetQuery} onChange={handleStreetChange} placeholder="Skriv inn gate..." />
+          </div>
+          {streetSuggestions.length > 0 && (
+            <motion.ul initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="bg-arctic-mist border border-border-cool rounded-xl shadow-md p-2 space-y-1 max-h-64 overflow-y-auto">
+              {streetSuggestions.map(s => {
+                const postcode = s.address?.postcode || '';
+                const city = s.address?.city || s.address?.town || '';
+                const country = s.address?.country_code?.toUpperCase() || '';
+                const secondaryInfo = [postcode, city, country].filter(Boolean).join(', ');
+                
+                return (
+                  <li 
+                    key={s.place_id} 
+                    onClick={() => handleSelectStreet(s)} 
+                    className="p-3 hover:bg-norwegian-ice cursor-pointer rounded-lg transition-all border-l-4 border-transparent hover:border-ice-deep"
+                  >
+                    <div className="font-lora text-charcoal-text">{s.display_name}</div>
+                    {secondaryInfo && <div className="text-xs text-charcoal-text mt-1">{secondaryInfo}</div>}
+                  </li>
+                );
+              })}
+            </motion.ul>
+          )}
+          {[
+            { key: 'streetNumber', label: 'Husnummer' },
+            { key: 'district', label: 'Distrikt' },
+            { key: 'city', label: 'By' }
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <label className="font-raleway">{label}</label>
+              <input className={inputClasses} value={shippingData[key]} onChange={e => setShippingData({ ...shippingData, [key]: e.target.value })} />
+            </div>
+          ))}
+          <div>
+            <label className="font-raleway">Land</label>
+            <select 
+              className={inputClasses} 
+              value={shippingData.country} 
+              onChange={e => {
+                const newCountry = e.target.value;
+                setShippingData({ ...shippingData, country: newCountry });
+                if (query.length >= 2) {
+                  setTimeout(() => fetchSuggestions(query), 100);
+                }
+              }}
+            >
+              <option value="DK">Denmark (DK)</option>
+              <option value="NO">Norway (NO)</option>
+              <option value="SE">Sweden (SE)</option>
+              <option value="FI">Finland (FI)</option>
+            </select>
+          </div>
+          <div>
+            <label className="font-raleway">Postnummer</label>
+            <input 
+              className={inputClasses} 
+              value={shippingData.postcode} 
+              onChange={e => {
+                const newPostcode = e.target.value;
+                setShippingData(prev => ({ ...prev, postcode: newPostcode }));
+                
+                if (postalCodeTimeout.current) clearTimeout(postalCodeTimeout.current);
+                postalCodeTimeout.current = setTimeout(() => {
+                  if (newPostcode.length >= 4) {
+                    console.log("User entered postal code:", newPostcode);
+                    const country = shippingDataRef.current.country || "DK";
+                    fetchServicePoints(newPostcode, country);
+                  }
+                }, 500);
+              }}
+              placeholder="Skriv inn postnummer..."
+            />
+          </div>
+          <button onClick={handleSave} className={buttonClasses}>Lagre</button>
+        </motion.div>
+      )}
+
+      {step === 3 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={cardClasses}>
+          <h2 className="text-2xl font-playfair font-bold text-ice-deep tracking-wide">Lagret informasjon</h2>
+          {Object.entries(shippingData).map(([key,value]) => (
+            <div key={key} className="border-b border-border-cool pb-2">
+              <strong className="capitalize font-raleway">{key}:</strong> <span className="font-lora">{value}</span>
+            </div>
+          ))}
+          <div className="mt-4">
+            <p className="mb-2 font-raleway">Velg et hentested eller leveringsmetode fra listen under:</p>
+            {loadingServicePoints ? (
+              <p className="text-charcoal-text font-lora">Søker etter tilgjengelige alternativer...</p>
+            ) : serviceError ? (
+              <p className="text-red-600 font-lora">Feil ved henting av alternativer: {serviceError}</p>
+            ) : servicePoints.length === 0 ? (
+              <p className="text-charcoal-text font-lora">Ingen hentesteder funnet for postnummeret.</p>
+            ) : (
+              <div className="space-y-2">
+                {servicePoints.map(opt => (
+                  <label key={opt.id} className="flex items-center space-x-3 p-3 bg-arctic-mist rounded-xl">
+                    <input type="radio" name="shipopt" onChange={() => handleSelectShipping(opt)} />
+                    <div>
+                      <div className="font-lora font-medium">{opt.name}</div>
+                      <div className="text-sm text-charcoal-text">{opt.address} {opt.postcode} {opt.city}</div>
+                    </div>
+                    <div className="ml-auto font-playfair">{(opt.cost/100).toFixed(2)} NOK</div>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4">
+              <CreateShipmentButton
+                shipmentData={{ ...shippingData, servicePoint: selectedServicePoint }}
+                onStatus={(status, payload) => setCreateShipmentStatus({ status, payload })}
+              />
+              {createShipmentStatus && (
+                <div className="mt-2 text-sm font-lora">
+                  {createShipmentStatus.status === 1 ? (
+                    <span className="text-green-600">Forsendelse opprettet ✅</span>
+                  ) : (
+                    <span className="text-red-600">Forsendelse mislyktes ❌</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {step === 4 && selectedServicePoint && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={cardClasses}>
+          <h2 className="text-2xl font-playfair font-bold text-ice-deep tracking-wide">Bekreft fraktvalg</h2>
+          
+          <div className="bg-arctic-mist p-4 rounded-lg border border-border-cool space-y-3">
+            <div>
+              <label className="text-sm font-raleway font-medium text-charcoal-text">Leveringssted:</label>
+              <p className="text-lg font-playfair text-charcoal-text">{selectedServicePoint.name}</p>
+            </div>
+            <div>
+              <label className="text-sm font-raleway font-medium text-charcoal-text">Pris:</label>
+              <p className="text-lg font-playfair text-charcoal-text">{(selectedServicePoint.cost / 100).toFixed(2)} NOK</p>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-4">
+            <button onClick={confirmAndProceed} className={buttonClasses}>
+              Fortsett til betaling →
+            </button>
+            <button onClick={() => setStep(3)} className="w-full bg-arctic-mist hover:bg-norwegian-ice text-charcoal-text p-4 rounded-2xl font-raleway font-semibold transition">
+              ← Velg annet sted
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+
+}

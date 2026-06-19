@@ -1,71 +1,111 @@
+import React from "react";
 import {
+  Geist,
+  Geist_Mono,
+  Roboto_Flex,
+  Roboto,
   Playfair_Display,
-  Inter,
-  Libre_Baskerville,
   Cormorant_Garamond,
-  Prata,
+  Cinzel,
+  Abril_Fatface,
   Lora,
+  Great_Vibes,
+  EB_Garamond,
+  Libre_Baskerville,
+  Oswald,
+  Bebas_Neue,
+  Manrope,
+  Della_Respira,
+  Raleway,
+  Inter,
   Merriweather,
 } from "next/font/google";
+
 import "./globals.css";
+import CartWrapper from './utils/cartWrapper';
+import Navbar from "../app/components/Navbar";
+import Footer from "./components/Footer";
+import { AuthProvider } from "./auth/authContext";
+import '../app/styles/omoss.css';
 
-export const merriweather = Merriweather({
-  variable: "--font-merriweather",
-  subsets: ["latin"],
-  weight: ["300", "400", "700", "900"],
-});
+// Existing fonts
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const robotoFlex = Roboto_Flex({ weight: ['400', '700'], subsets: ['latin'] });
+const roboto = Roboto({ weight: ['400', '700'], subsets: ['latin'] });
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
+// Luxurious fonts
+const playfairDisplay = Playfair_Display({ variable: "--font-playfair", weight: ['400', '700'], subsets: ["latin"] });
+const cormorant = Cormorant_Garamond({ variable: "--font-cormorant", weight: ['400', '700'], subsets: ["latin"] });
+const cinzel = Cinzel({ variable: "--font-cinzel", weight: ['400', '700'], subsets: ["latin"] });
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-});
+// Abril Fatface only has weight 400
+const abril = Abril_Fatface({ weight: ['400'], subsets: ["latin"] });
 
-const libreBaskerville = Libre_Baskerville({
-  variable: "--font-baskerville",
-  subsets: ["latin"],
-  weight: ["400", "700"],
-});
+const lora = Lora({ variable: "--font-lora", weight: ['400', '700'], subsets: ["latin"] });
+const greatVibes = Great_Vibes({ variable: "--font-greatvibes", weight: ['400'], subsets: ["latin"] });
+const ebGaramond = EB_Garamond({ variable: "--font-ebgaramond", weight: ['400', '700'], subsets: ["latin"] });
+const libreBaskerville = Libre_Baskerville({ variable: "--font-libre", weight: ['400', '700'], subsets: ["latin"] });
 
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
+// Display fonts
+const oswald = Oswald({ variable: "--font-oswald", weight: ['700'], subsets: ["latin"] });
+const bebasNeue = Bebas_Neue({ variable: "--font-bebas", weight: ['400'], subsets: ["latin"] });
 
-export const prata = Prata({
-  variable: "--font-prata",
-  subsets: ["latin"],
-  weight: ["400"],
-});
+// Modern fonts
+const manrope = Manrope({ variable: "--font-manrope", weight: ['400', '700'], subsets: ["latin"] });
 
-const lora = Lora({
-  variable: "--font-lora",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
+// Added elegant Claude-style combo
+const dellaRespira = Della_Respira({ variable: "--font-dellarespira", weight: ['400'], subsets: ["latin"] });
+const raleway = Raleway({ variable: "--font-raleway", weight: ['400', '700'], subsets: ["latin"] });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+const merriweather = Merriweather({ variable: "--font-merriweather", weight: ['400', '700'], subsets: ["latin"] });
 
 export const metadata = {
-  title: "NORYA — Norwegian Handcrafted Luxury",
-  description:
-    "Exquisite handcrafted Nordic products made by master artisans in Norway. Where tradition meets timeless elegance.",
-  keywords: "Norwegian craft, luxury, handmade, Nordic design, artisan",
+  title: "NORYA",
+  description: "NORDNORSK HÅNDVERK",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html
-      lang="no"
-      className={`${merriweather.variable} ${prata.variable} ${playfair.variable} ${inter.variable} ${libreBaskerville.variable} ${cormorant.variable} ${lora.variable}`}
-    >
-      <body className="min-h-screen antialiased bg-[#faf8f5] text-[#1a1a1a]">
-        {children}
+    <html lang="en">
+      <body
+        className={`min-h-screen flex flex-col
+          ${geistSans.variable} 
+          ${geistMono.variable} 
+          ${robotoFlex.variable} 
+          ${roboto.variable} 
+          ${playfairDisplay.variable} 
+          ${cormorant.variable} 
+          ${cinzel.variable} 
+          ${abril.variable} 
+          ${lora.variable} 
+          ${greatVibes.variable} 
+          ${ebGaramond.variable} 
+          ${libreBaskerville.variable} 
+          ${oswald.variable} 
+          ${bebasNeue.variable} 
+          ${manrope.variable}
+          ${dellaRespira.variable}
+          ${raleway.variable}
+          ${inter.variable}
+          ${merriweather.variable}
+          antialiased`}
+      >      <CartWrapper className="flex flex-col flex-grow">
+        <AuthProvider>
+    
+            <Navbar />
+            <main className="flex-grow">{children}</main>
+            <Footer />
+      
+        </AuthProvider>
+            </CartWrapper>
       </body>
     </html>
   );

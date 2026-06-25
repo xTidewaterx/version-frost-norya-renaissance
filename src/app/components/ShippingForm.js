@@ -292,14 +292,16 @@ export default function ShippingForm({ onShippingSelected }) {
     // Normalize country code before saving
     const normalizedCountry = normalizeCountryCode(shippingData.country);
     const finalShippingData = { ...shippingData, country: normalizedCountry };
-    
+
     console.log("FINAL DATASET:", finalShippingData);
     setShippingData(finalShippingData);
-    
+
     // After saving address, fetch available service points
     setStep(3);
     // persist to localStorage
     try { localStorage.setItem("norya_shipping", JSON.stringify(finalShippingData)); } catch (e) {}
+
+    // Use the already normalized country from finalShippingData to avoid race condition
     fetchServicePoints(finalShippingData.postcode, normalizedCountry);
   }
 
@@ -502,19 +504,19 @@ return (
           </div>
           <div>
             <label className="font-raleway">Postnummer</label>
-            <input 
-              className={inputClasses} 
-              value={shippingData.postcode} 
+            <input
+              className={inputClasses}
+              value={shippingData.postcode}
               onChange={e => {
                 const newPostcode = e.target.value;
+                const currentCountry = shippingData.country || "DK";
                 setShippingData(prev => ({ ...prev, postcode: newPostcode }));
-                
+
                 if (postalCodeTimeout.current) clearTimeout(postalCodeTimeout.current);
                 postalCodeTimeout.current = setTimeout(() => {
                   if (newPostcode.length >= 4) {
-                    console.log("User entered postal code:", newPostcode);
-                    const country = shippingDataRef.current.country || "DK";
-                    fetchServicePoints(newPostcode, country);
+                    console.log("User entered postal code:", newPostcode, "country:", currentCountry);
+                    fetchServicePoints(newPostcode, currentCountry);
                   }
                 }, 500);
               }}

@@ -1,11 +1,15 @@
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  console.error('STRIPE_SECRET_KEY is not set');
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+if (!stripeSecretKey) {
+  throw new Error("❌ STRIPE_SECRET_KEY is required but not set in environment");
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2022-11-15',
+console.log("🔵 Using Stripe key (retrieve-account):", stripeSecretKey.slice(0, 18) + "...");
+
+const stripe = new Stripe(stripeSecretKey, {
+  apiVersion: "2024-06-20",
 });
 
 export async function POST(req) {
@@ -18,29 +22,34 @@ export async function POST(req) {
 
     const account = await stripe.accounts.retrieve(accountId);
 
-    const requirementsDue = [];
+    const requirementsCurrentlyDue = account.requirements?.currently_due || [];
+    const requirementsEventuallyDue = account.requirements?.eventually_due || [];
+    const requirementsDue = [
+      ...requirementsCurrentlyDue,
+      ...requirementsEventuallyDue,
+    ];
 
-    if (account.requirements?.currently_due) {
-      requirementsDue.push(...account.requirements.currently_due);
-    }
-    if (account.requirements?.eventually_due) {
-      requirementsDue.push(...account.requirements.eventually_due);
-    }
-
-    const needsBankAccount = requirementsDue.includes('external_account');
+    const needsBankAccount = requirementsCurrentlyDue.includes('external_account');
     const needsTosAcceptance =
-      requirementsDue.includes('tos_acceptance.date') ||
-      requirementsDue.includes('tos_acceptance.ip') ||
+      requirementsCurrentlyDue.includes('tos_acceptance.date') ||
+      requirementsCurrentlyDue.includes('tos_acceptance.ip') ||
       account.tos_acceptance?.date == null ||
       account.tos_acceptance?.ip == null;
+
+    const needsDocumentVerification = requirementsCurrentlyDue.some((req) =>
+      req.startsWith('individual.verification.document')
+    );
 
     return Response.json({
       details_submitted: account.details_submitted,
       charges_enabled: account.charges_enabled,
       payouts_enabled: account.payouts_enabled,
       requirements_due: requirementsDue,
+      requirements_currently_due: requirementsCurrentlyDue,
+      requirements_eventually_due: requirementsEventuallyDue,
       needsBankAccount,
       needsTosAcceptance,
+      needsDocumentVerification,
     });
   } catch (err) {
     console.error('Stripe retrieve-account error:', err);

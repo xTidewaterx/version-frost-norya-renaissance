@@ -11,11 +11,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20",
 });
 
-// Convert country names to ISO country codes
 function normalizeCountryCode(countryInput) {
   if (!countryInput) return "NO";
   const input = countryInput.toString().trim().toUpperCase();
-  
+
   const countryMap = {
     'DANMARK': 'DK',
     'DENMARK': 'DK',
@@ -34,18 +33,30 @@ function normalizeCountryCode(countryInput) {
   return countryMap[input] || input.slice(0, 2).toUpperCase() || "NO";
 }
 
+async function syncAccountToUser(account) {
+  try {
+    const { getFirestore, doc, setDoc } = await import('firebase/firestore');
+    // This would sync account status back to the user document
+    console.log("🔄 Sync account to user:", {
+      accountId: account.id,
+      details_submitted: account.details_submitted,
+      charges_enabled: account.charges_enabled,
+      payouts_enabled: account.payouts_enabled,
+      requirements_due: account.requirements?.currently_due,
+    });
+  } catch (err) {
+    console.error("Failed to sync account:", err);
+  }
+}
+
 export async function POST(req) {
-  // 1. Read the raw body correctly
   const body = await req.arrayBuffer();
   const rawBody = Buffer.from(body);
-
-  // 2. Grab Stripe signature
   const signature = headers().get("stripe-signature");
 
   let event;
 
   try {
-    // 3. Verify the event
     event = stripe.webhooks.constructEvent(
       rawBody,
       signature,
@@ -56,7 +67,8 @@ export async function POST(req) {
     return new Response("Invalid signature", { status: 400 });
   }
 
-  // 4. Handle events
+  console.log("📥 Webhook received:", event.type, event.data?.object?.id);
+
   switch (event.type) {
     case "charge.succeeded":
       console.log("💰 Charge succeeded:", event.data.object.id);
@@ -65,32 +77,26 @@ export async function POST(req) {
     case "payment_intent.succeeded":
       console.log("✨ Payment Intent success:", event.data.object.id);
 
-      // If shipping metadata exists, create shipment via our API which proxies Shipmondo
       try {
         const metadata = event.data.object.metadata || {};
         if (metadata.shipping) {
           let shippingInfo = {};
-          try { 
-            shippingInfo = JSON.parse(metadata.shipping); 
-          } catch (e) { 
+          try {
+            shippingInfo = JSON.parse(metadata.shipping);
+          } catch (e) {
             console.warn("Could not parse shipping metadata:", e.message);
-            shippingInfo = { raw: metadata.shipping }; 
+            shippingInfo = { raw: metadata.shipping };
           }
 
-          // Extract customer data - prefer customerData from metadata
           const customerData = shippingInfo.customerData || {};
-          const details = shippingInfo.details || {};
 
-          // Build full address from customer data
-          const address1 = customerData.street 
+          const address1 = customerData.street
             ? `${customerData.street} ${customerData.streetNumber || ''}`.trim()
-            : (customerData.address || details.address || "");
+            : (customerData.address || shippingInfo.address || "");
 
-          // Build a basic shipment request compatible with /api/shipment route
           const shipmentRequest = {
             reference: `Order ${event.data.object.id}`,
             parties: [
-              // Sender — use configured env or fallback
               {
                 type: "sender",
                 name: process.env.SHIPMENT_SENDER_NAME || "NORYA Sender",
@@ -101,7 +107,6 @@ export async function POST(req) {
                 email: process.env.SHIPMENT_SENDER_EMAIL || "sender@example.com",
                 phone: process.env.SHIPMENT_SENDER_PHONE || "+4712345678",
               },
-              // Receiver — from customerData
               {
                 type: "receiver",
                 name: customerData.name || shippingInfo.name || "Receiver",
@@ -123,10 +128,9 @@ export async function POST(req) {
             ],
           };
 
-          console.log("📦 Creating shipment with data:", {
-            sender: shipmentRequest.parties[0].name,
+          console.log("📦 Creating shipment:", {
+            accountId: event.data.object.id,
             receiver: shipmentRequest.parties[1].name,
-            address: shipmentRequest.parties[1].address1,
           });
 
           const resp = await fetch("/api/shipment", {
@@ -139,12 +143,57 @@ export async function POST(req) {
           });
 
           const respBody = await resp.text();
-          console.log("✅ Shipment creation response status:", resp.status, respBody.slice(0, 300));
+          console.log("✅ Shipment response:", resp.status, respBody.slice(0, 300));
         }
       } catch (err) {
-        console.error("❌ Failed to create shipment after payment:", err);
+        console.error("❌ Failed to create shipment:", err);
       }
       break;
+
+    case "account.updated": {
+      const account = event.data.object;
+      console.log("✅ STRIPE CONNECT ACCOUNT UPDATED:", account.id);
+
+      if (account.details_submitted) {
+        console.log("📝 Account details submitted:", {
+          accountId: account.id,
+          charges_enabled: account.charges_enabled,
+          payouts_enabled: account.payouts_enabled,
+        });
+      }
+
+      if (account.charges_enabled && account.payouts_enabled) {
+        console.log("🎉 CONNECT ACCOUNT FULLY VERIFIED - READY FOR PAYOUTS:", {
+          accountId: account.id,
+          email: account.email,
+          business_name: account.business_profile?.name,
+          charges_enabled: account.charges_enabled,
+          payouts_enabled: account.payouts_enabled,
+          requirements_due: account.requirements?.currently_due?.length || 0,
+        });
+      }
+
+      await syncAccountToUser(account);
+      break;
+    }
+
+    case "identity.verification_session.created": {
+      const verification = event.data.object;
+      console.log("🆔 ID VERIFICATION SESSION CREATED:", verification.id, "for account:", verification.account);
+      break;
+    }
+
+    case "identity.verification_session.completed": {
+      const verification = event.data.object;
+      console.log("🆔 ID VERIFICATION SESSION COMPLETED - SUCCESS:", verification.id, "status:", verification.status);
+      break;
+    }
+
+    case "identity.verification_session.failed": {
+      const verification = event.data.object;
+      console.log("❌ ID VERIFICATION FAILED:", verification.id, "status:", verification.status, "last error:", verification.last_error?.message);
+      break;
+    }
 
     default:
       console.log("Unhandled event type:", event.type);

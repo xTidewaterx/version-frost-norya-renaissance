@@ -1,117 +1,104 @@
 import Stripe from 'stripe';
 
-// Validate Stripe key exists
-if (!process.env.STRIPE_SECRET_KEY) {
-  console.error('⚠️ STRIPE_SECRET_KEY is not set!');
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+if (!stripeSecretKey) {
+  throw new Error("❌ STRIPE_SECRET_KEY is required but not set in environment");
 }
 
-let stripe;
+console.log("🔵 Using Stripe key:", stripeSecretKey.slice(0, 18) + "...");
 
-try {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-    apiVersion: '2022-11-15',
-  });
-} catch (err) {
-  console.error('Failed to initialize Stripe:', err.message);
-}
+const stripe = new Stripe(stripeSecretKey, {
+  apiVersion: "2024-06-20",
+});
 
 export async function POST(req) {
   try {
-    // Validate Stripe is initialized
-    if (!stripe || !process.env.STRIPE_SECRET_KEY) {
-      console.error('Stripe not properly initialized');
+    const { userId, userEmail, userName } = await req.json();
+    console.log(
+      "🔵 Stripe onboarding started for clientId:",
+      userId,
+      "email:",
+      userEmail,
+      "secretKey:",
+      stripeSecretKey.slice(0, 18) + "...",
+      "(from .env.local)"
+    );
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+    if (!stripe) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Stripe integration not configured. Please check STRIPE_SECRET_KEY.',
-          missing: !process.env.STRIPE_SECRET_KEY,
-        }),
+        JSON.stringify({ error: 'Stripe not configured.' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const body = await req.json();
-    const { userId, userEmail, userName } = body;
-
-    console.log('📝 Stripe Connect request received:', { userId, userEmail, userName });
-
     if (!userId || !userEmail) {
-      console.warn('Missing required fields:', { userId, userEmail });
       return new Response(
         JSON.stringify({ error: 'Missing userId or userEmail' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-try {
-  console.log('🔄 Creating Stripe Connect account...');
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (!appUrl) {
-    return {
-      error: 'Missing NEXT_PUBLIC_APP_URL — must be a valid HTTPS domain.',
-    };
-  }
-
-  // Create new Stripe Connect account
-  const account = await stripe.accounts.create({
-    type: 'express',
-    country: 'NO',
-    email: userEmail,
-    business_profile: {
-      name: userName || 'NORYA Creator',
-      url: appUrl,
-    },
-  });
-
-  console.log('✅ Stripe account created:', account.id);
-
-  // Create account link for onboarding
-  console.log('🔗 Creating account link...');
-  const accountLink = await stripe.accountLinks.create({
-    account: account.id,
-    type: 'account_onboarding',
-    refresh_url: `${appUrl}/profile?stripe=refresh`,
-    return_url: `${appUrl}/profile?stripe=success`,
-  });
-
-  console.log('✅ Account link created');
-
-
-      const response = {
-        url: accountLink.url,
-        accountId: account.id,
-      };
-
-      console.log('📤 Returning response with URL:', accountLink.url?.substring(0, 50) + '...');
-
+    if (!appUrl) {
       return new Response(
-        JSON.stringify(response),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    } catch (stripeErr) {
-      console.error('❌ Stripe API error:', stripeErr.message);
-      console.error('Error type:', stripeErr.type);
-      console.error('Error code:', stripeErr.code);
-      
-      return new Response(
-        JSON.stringify({ 
-          error: stripeErr.message || 'Stripe API error',
-          type: stripeErr.type,
-          code: stripeErr.code,
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing NEXT_PUBLIC_APP_URL' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
-  } catch (err) {
-    console.error('❌ Fatal error in stripe-connect route:', err.message);
-    console.error('Stack:', err.stack);
-    
+
+    let account;
+
+    try {
+      const accounts = await stripe.accounts.list({ limit: 100 });
+      account = accounts.data.find((acc) => acc.email === userEmail);
+
+      if (account) {
+        console.log("Reusing existing account:", account.id);
+      }
+    } catch (e) {
+      console.warn("Error checking existing accounts:", e.message);
+    }
+
+    if (!account) {
+      account = await stripe.accounts.create({
+        type: 'express',
+        country: 'NO',
+        email: userEmail,
+        business_type: 'individual',
+        default_currency: 'nok',
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        business_profile: {
+          name: userName || 'NORYA Creator',
+          url: appUrl,
+        },
+        metadata: {
+          user_id: userId,
+          platform: 'NORYA',
+        },
+      });
+      console.log('Created new account:', account.id);
+    }
+
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      type: 'account_onboarding',
+      refresh_url: `${appUrl}/profile?stripe=refresh`,
+      return_url: `${appUrl}/profile?stripe=success`,
+    });
+
     return new Response(
-      JSON.stringify({ 
-        error: err.message || 'Internal server error',
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ url: accountLink.url, accountId: account.id }),
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error('Stripe-connect error:', err);
+    return new Response(
+      JSON.stringify({ error: err.message, type: err.type, code: err.code }),
+      { status: 500 }
     );
   }
 }

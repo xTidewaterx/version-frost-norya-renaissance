@@ -16,7 +16,15 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+if (!stripeSecretKey) {
+  throw new Error("❌ STRIPE_SECRET_KEY is required but not set in environment");
+}
+
+console.log("🔵 Using Stripe key:", stripeSecretKey.slice(0, 18) + "...");
+
+const stripe = new Stripe(stripeSecretKey, {
   apiVersion: "2022-11-15",
 });
 
@@ -35,6 +43,7 @@ export async function POST(req) {
       photoURL: photoURL || null,
     });
 
+    const newClientId = userRecord.uid;
     const userTag = `#${uuidv4().slice(0, 8)}`;
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL;
@@ -45,6 +54,15 @@ export async function POST(req) {
 
     if (role === "seller") {
       try {
+        console.log(
+        "🔵 Stripe onboarding started for clientId:",
+        newClientId,
+        "email:",
+        email,
+        "secretKey:",
+        stripeSecretKey.slice(0, 18) + "...",
+        "(from .env.local)"
+      );
         const account = await stripe.accounts.create({
           type: "express",
           country: "NO",

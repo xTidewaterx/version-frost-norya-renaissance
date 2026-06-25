@@ -112,6 +112,20 @@ const ImageCropUploader = () => {
   }, [auth]);
 
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const stripeStatus = urlParams.get('stripe');
+
+    if (stripeStatus === 'success' && user) {
+      console.log('✅ STRIPE CONNECT ONBOARDING RETURNED - SUCCESS');
+      console.log('🔄 Checking account status...');
+      // The PaymentInfo component will auto-refresh status on mount
+    }
+    if (stripeStatus === 'refresh' && user) {
+      console.log('🔄 STRIPE CONNECT ONBOARDING REFRESH - account needs re-onboarding');
+    }
+  }, [user]);
+
+  useEffect(() => {
     setShowHalo(true);
     const timer = setTimeout(() => setShowHalo(false), 3000);
     return () => clearTimeout(timer);

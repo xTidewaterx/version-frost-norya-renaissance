@@ -5,7 +5,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2022-11-15',
+  apiVersion: '2024-06-20',
 });
 
 export async function POST(req) {
@@ -19,7 +19,12 @@ export async function POST(req) {
     const session = await stripe.accountSessions.create({
       account: accountId,
       components: {
-        account_onboarding: { enabled: true },
+        account_onboarding: {
+          enabled: true,
+          features: {
+            external_account_collection: true,
+          },
+        },
       },
     });
 

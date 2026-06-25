@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { loadConnectAndInitialize } from '@stripe/connect-js';
 
 const ColorDot = ({ color, className = '' }) => (
   <span className={`inline-block h-2 w-2 rounded-full ${className}`} style={{ backgroundColor: color }} />
@@ -18,13 +17,10 @@ export default function PaymentInfo({ activeTheme }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const auth = getAuth();
   const db = getFirestore();
   const themeColor = activeTheme?.accent || '#1f4a58';
-  const onboardingRef = useRef(null);
-  const stripeConnectRef = useRef(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -64,6 +60,15 @@ export default function PaymentInfo({ activeTheme }) {
     loadPaymentInfo();
   }, [currentUser, db]);
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const stripeParam = urlParams.get('stripe');
+    if (stripeParam === 'success' && paymentInfo?.stripeConnectId) {
+      refreshAccountStatus(paymentInfo.stripeConnectId);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [paymentInfo]);
+
   const refreshAccountStatus = async (accountId) => {
     try {
       const res = await fetch('/api/stripe/retrieve-account', {
@@ -74,74 +79,50 @@ export default function PaymentInfo({ activeTheme }) {
       const data = await res.json();
       if (res.ok) {
         setAccountStatus(data);
+        console.log("📊 Stripe account status refreshed:", {
+          accountId,
+          details_submitted: data.details_submitted,
+          charges_enabled: data.charges_enabled,
+          payouts_enabled: data.payouts_enabled,
+          needsDocumentVerification: data.needsDocumentVerification,
+        });
+
+        if (data.charges_enabled && data.payouts_enabled) {
+          console.log("🎉 CONNECT ACCOUNT FULLY VERIFIED - Ready to receive payouts");
+        }
       }
     } catch (err) {
       console.error('Failed to refresh account status:', err);
     }
   };
 
-  const startExistingOnboarding = async () => {
-    if (!currentUser?.uid || !paymentInfo?.stripeConnectId || typeof window === 'undefined') {
-      setError('Du må være logget inn med en eksisterende Stripe-konto.');
-      return;
+  const getDocumentOnboardingLink = async (accountId) => {
+    const res = await fetch('/api/stripe/onboarding-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Kunne ikke generere onboarding-link.');
     }
 
-    setConnecting(true);
-    setError(null);
-    setShowOnboarding(true);
-
-    try {
-      const res = await fetch('/api/stripe/account-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountId: paymentInfo.stripeConnectId,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Kunne ikke gjenopprette Stripe onboarding.');
-      }
-
-      if (!data.client_secret) {
-        throw new Error('Mangler påkrevde data fra Stripe.');
-      }
-
-      const clientSecretRef = { current: data.client_secret };
-
-      const stripeConnect = await loadConnectAndInitialize({
-        publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-        fetchClientSecret: async () => clientSecretRef.current,
-      });
-
-      stripeConnectRef.current = stripeConnect;
-
-      const element = stripeConnectRef.current.create('account-onboarding');
-
-      if (onboardingRef.current) {
-        onboardingRef.current.innerHTML = '';
-        onboardingRef.current.appendChild(element);
-      }
-    } catch (err) {
-      console.error('Embedded onboarding error:', err);
-      setError(err.message || 'Feil ved oppstart av Stripe onboarding.');
-      setShowOnboarding(false);
-    } finally {
-      setConnecting(false);
+    if (!data.onboardingUrl) {
+      throw new Error('Ingen KYC-dokumenter mangler for denne kontoen.');
     }
+
+    return data.onboardingUrl;
   };
 
-  const startEmbeddedOnboarding = async () => {
-    if (!currentUser?.uid || typeof window === 'undefined') {
+const startStripeOnboarding = async () => {
+    if (!currentUser?.uid) {
       setError('Du må være logget inn.');
       return;
     }
 
     setConnecting(true);
     setError(null);
-    setShowOnboarding(true);
 
     try {
       const res = await fetch('/api/stripe/create-account-session', {
@@ -159,7 +140,7 @@ export default function PaymentInfo({ activeTheme }) {
         throw new Error(data.error || 'Kunne ikke starte Stripe onboarding.');
       }
 
-      if (!data.client_secret || !data.accountId) {
+      if (!data.url || !data.accountId) {
         throw new Error('Mangler påkrevde data fra Stripe.');
       }
 
@@ -179,25 +160,10 @@ export default function PaymentInfo({ activeTheme }) {
         email: currentUser.email,
       });
 
-      const clientSecretRef = { current: data.client_secret };
-
-      const stripeConnect = await loadConnectAndInitialize({
-        publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-        fetchClientSecret: async () => clientSecretRef.current,
-      });
-
-      stripeConnectRef.current = stripeConnect;
-
-      const element = stripeConnectRef.current.create('account-onboarding');
-
-      if (onboardingRef.current) {
-        onboardingRef.current.innerHTML = '';
-        onboardingRef.current.appendChild(element);
-      }
+      window.location.href = data.url;
     } catch (err) {
-      console.error('Embedded onboarding error:', err);
+      console.error('Stripe onboarding error:', err);
       setError(err.message || 'Feil ved tilkobling av Stripe.');
-      setShowOnboarding(false);
     } finally {
       setConnecting(false);
     }
@@ -225,12 +191,6 @@ export default function PaymentInfo({ activeTheme }) {
         stripeConnectEmail: null,
       });
 
-      stripeConnectRef.current?.unmount();
-
-      if (onboardingRef.current) {
-        onboardingRef.current.innerHTML = '';
-      }
-
       setPaymentInfo(null);
       setAccountStatus(null);
       setSuccess('Stripe kontoen er koblet fra.');
@@ -243,16 +203,11 @@ export default function PaymentInfo({ activeTheme }) {
 
   const getStatusBadge = () => {
     if (!accountStatus && paymentInfo?.stripeConnectId) {
-      return (
-        <div>
-          <span className="text-sm font-medium text-slate-500">Ukjent</span>
-          <p className="mt-1 text-xs text-slate-500">Oppdater status for å se kontoinformasjon.</p>
-        </div>
-      );
+      return <span className="text-sm font-medium text-slate-500">Ukjent</span>;
     }
     if (!accountStatus) return null;
 
-    const { details_submitted, charges_enabled, payouts_enabled, needsBankAccount, needsTosAcceptance } = accountStatus;
+    const { details_submitted, charges_enabled, payouts_enabled } = accountStatus;
 
     if (details_submitted && charges_enabled && payouts_enabled) {
       return (
@@ -262,28 +217,18 @@ export default function PaymentInfo({ activeTheme }) {
       );
     }
 
-    const issues = [];
-    if (!details_submitted) issues.push('detaljer ikke sendt');
-    if (!charges_enabled) issues.push('betalinger ikke aktivert');
-    if (!payouts_enabled) issues.push('utbetalinger ikke aktivert');
-    if (needsBankAccount) issues.push('mangler bankkonto');
-    if (needsTosAcceptance) issues.push('mangler godkjenning av vilkår');
-
-    const issueCount = issues.length;
+    if (details_submitted && charges_enabled) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
+          Under verifisering
+        </span>
+      );
+    }
 
     return (
-      <div>
-        <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${
-          issueCount <= 2 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
-        }`}>
-          {issueCount <= 2 ? 'Under verifisering' : 'Krever handling'}
-        </span>
-        <ul className="mt-2 list-inside list-disc text-xs text-slate-600">
-          {issues.slice(0, 4).map((issue, idx) => (
-            <li key={idx}>{issue}</li>
-          ))}
-        </ul>
-      </div>
+      <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
+        Krever handling
+      </span>
     );
   };
 
@@ -378,11 +323,19 @@ export default function PaymentInfo({ activeTheme }) {
                       </p>
                     </div>
                   </div>
-                  {accountStatus.requirements_due && accountStatus.requirements_due.length > 0 && (
+                  {(accountStatus.requirements_currently_due || accountStatus.requirements_due || []).length > 0 && (
                     <div className="mt-3">
-                      <p className="text-xs text-slate-500">Gjenstående krav:</p>
+                      <p className="text-xs text-slate-500">Gjenstående krav nå:</p>
                       <p className="text-sm font-medium text-red-600">
-                        {accountStatus.requirements_due.join(', ')}
+                        {(accountStatus.requirements_currently_due || accountStatus.requirements_due || []).join(', ')}
+                      </p>
+                    </div>
+                  )}
+                  {accountStatus.requirements_eventually_due && accountStatus.requirements_eventually_due.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-slate-500">Fremtidige krav:</p>
+                      <p className="text-sm font-medium text-amber-600">
+                        {accountStatus.requirements_eventually_due.join(', ')}
                       </p>
                     </div>
                   )}
@@ -391,7 +344,7 @@ export default function PaymentInfo({ activeTheme }) {
             )}
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap gap-3 text-white">
             <button
               onClick={handleRefreshStatus}
               disabled={loadingStatus}
@@ -399,6 +352,26 @@ export default function PaymentInfo({ activeTheme }) {
             >
               {loadingStatus ? 'Oppdaterer...' : 'Oppdater status'}
             </button>
+            {accountStatus?.needsDocumentVerification && (
+              <button
+                onClick={async () => {
+                  setConnecting(true);
+                  setError(null);
+                  try {
+                    const url = await getDocumentOnboardingLink(paymentInfo.stripeConnectId);
+                    window.location.href = url;
+                  } catch (err) {
+                    setError(err.message || 'Kunne ikke åpne Stripe-dokumentopplasting.');
+                  } finally {
+                    setConnecting(false);
+                  }
+                }}
+                disabled={connecting}
+                className="flex-1 rounded-full border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {connecting ? 'Åpner...' : 'Last opp KYC-dokumenter'}
+              </button>
+            )}
             <a
               href={`https://dashboard.stripe.com/express/${paymentInfo.stripeConnectId}/login`}
               target="_blank"
@@ -415,27 +388,11 @@ export default function PaymentInfo({ activeTheme }) {
               Koble Fra
             </button>
           </div>
-
-          {accountStatus && (accountStatus.requirements_due?.length > 0 || !accountStatus.details_submitted) && (
-            <div className="mt-6">
-              <button
-                onClick={startExistingOnboarding}
-                disabled={connecting}
-                className="w-full rounded-full px-4 py-3 text-sm font-semibold text-white transition hover:brightness-95 active:brightness-90 disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ backgroundColor: themeColor, borderColor: themeColor }}
-              >
-                {connecting ? 'Åpner onboarding...' : 'Fullfør Stripe onboarding'}
-              </button>
-              <p className="mt-2 text-xs text-slate-500">
-                Fullfør onboarding for å legge til bankkonto og godkjenne vilkår for å motta betalinger.
-              </p>
-            </div>
-          )}
         </div>
       ) : (
         <div className="mt-7">
           <button
-            onClick={startEmbeddedOnboarding}
+            onClick={startStripeOnboarding}
             disabled={connecting}
             className="w-full rounded-full px-4 py-3 text-sm font-semibold text-white transition hover:brightness-95 active:brightness-90 disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: themeColor, borderColor: themeColor }}
@@ -445,13 +402,6 @@ export default function PaymentInfo({ activeTheme }) {
           <p className="mt-3 text-xs text-slate-500">
             Du trenger en Stripe Connect-konto for å motta betalinger. Hvis du ikke har en, opprettes den underveis.
           </p>
-        </div>
-      )}
-
-      {showOnboarding && (
-        <div className="mt-6">
-          <p className="mb-2 text-sm font-medium text-slate-700">Onboarding-skjema:</p>
-          <div ref={onboardingRef} className="rounded-xl border border-slate-200 bg-white p-2" />
         </div>
       )}
 

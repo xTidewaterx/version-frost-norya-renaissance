@@ -1,9 +1,8 @@
 'use client';
 
 import { useCart } from "react-use-cart";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import ShippingForm from "../../components/ShippingForm";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import Image from "next/image";
@@ -48,53 +47,53 @@ function CheckoutForm({ onBack, shippingOption, items }) {
     <div className="w-full max-w-2xl">
         <div className="mb-8 p-6 bg-glacial-white rounded-xl border border-border-cool">
          <h3 className="font-oswald text-ice-deep mb-4">Orderoversikt</h3>
-         
-         <div className="space-y-2 mb-4 pb-4 border-b border-border-cool">
-           {items.map((item) => (
-             <div key={item.id} className="flex justify-between text-sm text-ice-medium">
-               <span>{item.quantity}x {item.name}</span>
-               <span>{((item.price * item.quantity) / 100).toFixed(2)} NOK</span>
-             </div>
-           ))}
-         </div>
+        
+        <div className="space-y-2 mb-4 pb-4 border-b border-border-cool">
+          {items.map((item) => (
+            <div key={item.id} className="flex justify-between text-sm text-ice-medium">
+              <span>{item.quantity}x {item.name}</span>
+              <span>{((item.price * item.quantity) / 100).toFixed(2)} NOK</span>
+            </div>
+          ))}
+        </div>
 
-         <div className="space-y-2 mb-4 pb-4 border-b border-border-cool">
-           <div className="flex justify-between text-charcoal-text">
-             <span className="font-oswald font-bold">Subtotal:</span>
-             <span className="font-manrope">{(subtotal / 100).toFixed(2)} NOK</span>
-           </div>
-           <div className="flex justify-between text-charcoal-text">
-             <span className="font-oswald font-bold">Frakt:</span>
-             <span className="font-manrope">{(shippingOption.cost / 100).toFixed(2)} NOK</span>
-           </div>
-         </div>
+        <div className="space-y-2 mb-4 pb-4 border-b border-border-cool">
+          <div className="flex justify-between text-charcoal-text">
+            <span className="font-oswald font-bold">Subtotal:</span>
+            <span className="font-manrope">{(subtotal / 100).toFixed(2)} NOK</span>
+          </div>
+          <div className="flex justify-between text-charcoal-text">
+            <span className="font-oswald font-bold">Frakt:</span>
+            <span className="font-manrope">{(shippingOption.cost / 100).toFixed(2)} NOK</span>
+          </div>
+        </div>
 
-         <div className="flex justify-between text-lg font-oswald font-bold">
-           <span>Total:</span>
-           <span className="text-norwegian-gold font-manrope">{(totalSum / 100).toFixed(2)} NOK</span>
-         </div>
+        <div className="flex justify-between text-lg font-oswald font-bold">
+          <span>Total:</span>
+          <span className="text-norwegian-gold font-manrope">{(totalSum / 100).toFixed(2)} NOK</span>
+        </div>
 
-         <div className="mt-4 pt-4 border-t border-border-cool">
-           <p className="text-sm font-oswald font-bold text-charcoal-text mb-2">Leveringsalternativ:</p>
-           <p className="text-sm text-ice-medium font-manrope">{shippingOption.name}</p>
-         </div>
-       </div>
+        <div className="mt-4 pt-4 border-t border-border-cool">
+          <p className="text-sm font-oswald font-bold text-charcoal-text mb-2">Leveringsalternativ:</p>
+          <p className="text-sm text-ice-medium font-manrope">{shippingOption.name}</p>
+        </div>
+      </div>
 
-       <div className="bg-white p-6 rounded-xl border border-border-cool">
-         <h3 className="font-oswald text-ice-deep mb-4">Betalingsmetode</h3>
-         <form onSubmit={handleSubmit} className="space-y-6">
-           <PaymentElement />
-           <button
-             type="submit"
-             disabled={!stripe || loading}
-             className="w-full bg-norwegian-gold text-ice-deep font-manrope font-bold py-3 rounded-lg hover:bg-yellow-300 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-           >
-             {loading ? "Behandler betaling…" : "Fullfør betaling"}
-           </button>
-           {message && <div className="text-green-600 mt-2 font-manrope text-sm">{message}</div>}
-           {error && <div className="text-red-600 mt-2 text-sm font-manrope">{error}</div>}
-         </form>
-       </div>
+      <div className="bg-white p-6 rounded-xl border border-border-cool">
+        <h3 className="font-oswald text-ice-deep mb-4">Betalingsmetode</h3>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <PaymentElement />
+          <button
+            type="submit"
+            disabled={!stripe || loading}
+            className="w-full bg-norwegian-gold text-ice-deep font-manrope font-bold py-3 rounded-lg hover:bg-yellow-300 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Behandler betaling…" : "Fullfør betaling"}
+          </button>
+          {message && <div className="text-green-600 mt-2 font-manrope text-sm">{message}</div>}
+          {error && <div className="text-red-600 mt-2 text-sm font-manrope">{error}</div>}
+        </form>
+      </div>
 
       <button
         onClick={onBack}
@@ -119,6 +118,7 @@ export default function CartPage() {
     name: 'Standard frakt (2-4 dager)', 
     cost: 9900
   });
+  const [processingPickupPoint, setProcessingPickupPoint] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -147,42 +147,14 @@ export default function CartPage() {
     setCurrentItems(items);
   }, [items]);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("norya_selected_shipping");
-      if (saved) setShippingOption(JSON.parse(saved));
-    } catch (e) {
-      console.error("Failed to load shipping option:", e);
-    }
-  }, []);
-
-  if (!isClient) return null;
-  
-  const handleProceedToShipping = () => {
-    if (items.length === 0) {
-      alert("Handlekurven er tom");
-      return;
-    }
-    setCheckoutStep(2);
-  };
-
-  const handleShippingSelected = (option) => {
-    setShippingOption(option);
-    try {
-      localStorage.setItem("norya_selected_shipping", JSON.stringify(option));
-    } catch (e) {
-      console.error("Failed to save shipping option:", e);
-    }
-    handleProceedToPayment(option);
-  };
-
-  const handleProceedToPayment = async (shippingOptionToUse) => {
+  const handleProceedToPayment = useCallback(async (shippingOptionToUse) => {
     setLoadingSecret(true);
     try {
       const lineItems = items.map(item => ({
         id: item.id,
         name: item.name,
         quantity: item.quantity,
+        price: item.price, // Include price from cart
       }));
 
       const activeShippingOption = shippingOptionToUse || shippingOption;
@@ -221,6 +193,39 @@ export default function CartPage() {
       alert("Feil ved initialisering av betaling. Prøv igjen.");
     }
     setLoadingSecret(false);
+  }, [items, shippingOption]);
+
+useEffect(() => {
+     try {
+       const savedPickupPoint = localStorage.getItem("norya_selected_pickup_point");
+       if (savedPickupPoint && items.length > 0) {
+         setProcessingPickupPoint(true);
+         setCheckoutStep(2); // Show loading screen immediately
+         const pp = JSON.parse(savedPickupPoint);
+         const shipping = {
+           id: pp.id || "bring-pickup",
+           name: pp.name || "Bring Pakke i Posten",
+           cost: 9900,
+           address: pp.address,
+           city: pp.city,
+           postalCode: pp.postalCode,
+           pickupPointType: pp.pickupPointType,
+         };
+         setShippingOption(shipping);
+         localStorage.removeItem("norya_selected_pickup_point");
+         handleProceedToPayment(shipping);
+       }
+     } catch (e) {}
+   }, [items.length, handleProceedToPayment]); // Wait for items to be synced
+
+  if (!isClient) return null;
+  
+  const handleProceedToShipping = () => {
+    if (items.length === 0) {
+      alert("Handlekurven er tom");
+      return;
+    }
+    window.location.href = "/hentested";
   };
 
   const cardTransition = { duration: 0.4, ease: "easeInOut" };
@@ -254,55 +259,55 @@ export default function CartPage() {
 
                 {items.length === 0 ? (
                    <p className="text-center text-charcoal-text font-manrope font-bold">Handlekurven er tom.</p>
-                 ) : (
-                  <div key={`items-${currentItems.length}-${currentItems.map(i => i.id).join('-')}`} className="space-y-8">
-                    {currentItems.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between border-b border-border-cool pb-5">
-                        <div className="flex items-center space-x-4">
-                          <div className="relative w-20 h-20">
-                            <Image
-                              src={item.images?.[0] || "/placeholder.png"}
-                              alt={item.name}
-                              fill
-                              className="object-cover rounded-xl border border-border-cool shadow-sm"
-                            />
-                          </div>
-                           <div>
-                             <p className="font-manrope font-bold text-ice-deep text-lg">{item.name}</p>
-                             {item.artist && (
-                               <p className="text-charcoal-text text-sm font-manrope italic">av {item.artist}</p>
-                             )}
-                             <p className="text-charcoal-text text-sm font-bold mt-1">
-                               {(item.price / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
-                             </p>
+                  ) : (
+                   <div key={`items-${currentItems.length}-${currentItems.map(i => i.id).join('-')}`} className="space-y-8">
+                     {currentItems.map((item) => (
+                       <div key={item.id} className="flex items-center justify-between border-b border-border-cool pb-5">
+                         <div className="flex items-center space-x-4">
+                           <div className="relative w-20 h-20">
+                             <Image
+                               src={item.images?.[0] || "/placeholder.png"}
+                               alt={item.name}
+                               fill
+                               className="object-cover rounded-xl border border-border-cool shadow-sm"
+                             />
                            </div>
-                        </div>
+                            <div>
+                              <p className="font-manrope font-bold text-ice-deep text-lg">{item.name}</p>
+                              {item.artist && (
+                                <p className="text-charcoal-text text-sm font-manrope italic">av {item.artist}</p>
+                              )}
+                              <p className="text-charcoal-text text-sm font-bold mt-1">
+                                {(item.price / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
+                              </p>
+                            </div>
+                         </div>
 
-                        <div className="flex items-center space-x-3">
-                          <button 
-                            onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
-                            className="px-3 py-1 bg-arctic-mist text-ice-deep rounded-md hover:bg-norwegian-ice transition"
-                          >
-                            −
-                          </button>
-                          <span className="font-semibold text-ice-deep">{item.quantity}</span>
-                          <button
-                            onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
-                            className="px-3 py-1 bg-arctic-mist text-ice-deep rounded-md hover:bg-norwegian-ice transition"
-                          >
-                            +
-                          </button>
+                         <div className="flex items-center space-x-3">
                            <button 
-                             onClick={() => removeItem(item.id)}
-                             className="px-4 py-1 text-sm bg-norwegian-gold text-ice-deep font-manrope font-bold rounded-md hover:bg-yellow-300 transition"
+                             onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
+                             className="px-3 py-1 bg-arctic-mist text-ice-deep rounded-md hover:bg-norwegian-ice transition"
                            >
-                             Fjern
+                             −
                            </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                           <span className="font-semibold text-ice-deep">{item.quantity}</span>
+                           <button
+                             onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
+                             className="px-3 py-1 bg-arctic-mist text-ice-deep rounded-md hover:bg-norwegian-ice transition"
+                           >
+                             +
+                           </button>
+                            <button 
+                              onClick={() => removeItem(item.id)}
+                              className="px-4 py-1 text-sm bg-norwegian-gold text-ice-deep font-manrope font-bold rounded-md hover:bg-yellow-300 transition"
+                            >
+                              Fjern
+                            </button>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
               </div>
 
               <div className="bg-ice-deep text-glacial-white p-8 md:p-10 flex flex-col justify-between">
@@ -315,62 +320,55 @@ export default function CartPage() {
                      <p className="text-norwegian-gold font-bold mt-1 font-manrope">{(shippingOption.cost/100).toFixed(2)} NOK</p>
                    </div>
 
-                 <div className="flex justify-between text-lg font-oswald font-bold border-t border-border-cool pt-4">
-                    <span>Subtotal:</span>
-                    <span className="text-norwegian-gold font-manrope">
-                      {(subtotal / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-lg font-oswald font-bold mt-2">
-                    <span>Frakt:</span>
-                    <span className="text-norwegian-gold font-manrope">
-                      {(shippingOption.cost / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-lg font-oswald font-bold mt-2 border-t border-border-cool pt-2">
-                    <span>Total:</span>
-                    <span className="text-norwegian-gold font-manrope">
-                      {(totalSum / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
-                    </span>
-                  </div>
-                </div>
+                  <div className="flex justify-between text-lg font-oswald font-bold border-t border-border-cool pt-4">
+                     <span>Subtotal:</span>
+                     <span className="text-norwegian-gold font-manrope">
+                       {(subtotal / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
+                     </span>
+                   </div>
+                   <div className="flex justify-between text-lg font-oswald font-bold mt-2">
+                     <span>Frakt:</span>
+                     <span className="text-norwegian-gold font-manrope">
+                       {(shippingOption.cost / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
+                     </span>
+                   </div>
+                   <div className="flex justify-between text-lg font-oswald font-bold mt-2 border-t border-border-cool pt-2">
+                     <span>Total:</span>
+                     <span className="text-norwegian-gold font-manrope">
+                       {(totalSum / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
+                     </span>
+                   </div>
+                 </div>
 
-                <div className="mt-10 space-y-4">
-                  <button
-                    onClick={handleProceedToShipping}
-                    disabled={items.length === 0}
-                    className="w-full bg-norwegian-gold text-ice-deep font-manrope font-bold py-3 rounded-lg hover:bg-yellow-300 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Gå til frakt →
-                  </button>
-                  <button
-                    onClick={emptyCart}
-                    className="w-full bg-white/10 text-glacial-white py-3 rounded-lg hover:bg-white/20 transition font-manrope font-bold"
-                  >
-                    Tøm handlekurv
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
+                 <div className="mt-10 space-y-4">
+                   <button
+                     onClick={handleProceedToShipping}
+                     disabled={items.length === 0}
+                     className="w-full bg-norwegian-gold text-ice-deep font-manrope font-bold py-3 rounded-lg hover:bg-yellow-300 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                   >
+                     Gå til frakt →
+                   </button>
+                   <button
+                     onClick={emptyCart}
+                     className="w-full bg-white/10 text-glacial-white py-3 rounded-lg hover:bg-white/20 transition font-manrope font-bold"
+                   >
+                     Tøm handlekurv
+                   </button>
+                 </div>
+               </div>
+             </motion.div>
+           )}
 
-          {checkoutStep === 2 && (
+{checkoutStep === 2 && (
             <motion.div
-              key="shipping"
-              initial={{ rotateY: -180, rotateX: -5, scale: 0.97, opacity: 0.95 }}
+              key="processing"
+              initial={{ rotateY: -90, rotateX: -5, scale: 0.97, opacity: 0.95 }}
               animate={{ rotateY: 0, rotateX: 0, scale: 1, opacity: 1 }}
               exit={{ rotateY: 180, rotateX: 5, scale: 0.97, opacity: 0.95 }}
               transition={cardTransition}
-              className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-8 md:p-10 border border-border-cool"
-              style={{ backfaceVisibility: "hidden", transformOrigin: "center" }}
+              className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-10 flex flex-col items-center justify-center border border-border-cool"
             >
-              <ShippingForm onShippingSelected={handleShippingSelected} />
-               <button
-                 onClick={() => setCheckoutStep(1)}
-                 className="mt-6 text-ice-medium underline hover:text-ice-deep font-manrope"
-               >
-                 ← Tilbake til handlekurv
-               </button>
+              <p className="text-charcoal-text text-lg font-manrope font-bold mb-4">Behandler frakt og betaling...</p>
             </motion.div>
           )}
 
@@ -386,7 +384,7 @@ export default function CartPage() {
             >
               <Elements stripe={stripePromise} options={{ clientSecret, locale: 'nb' }}>
                 <CheckoutForm 
-                  onBack={() => setCheckoutStep(2)} 
+                  onBack={() => window.location.href = "/hentested"} 
                   shippingOption={shippingOption}
                   items={items}
                 />

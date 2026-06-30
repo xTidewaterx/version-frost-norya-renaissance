@@ -20,47 +20,33 @@ export async function POST(req) {
       return new Response(JSON.stringify({ error: errMsg }), { status: 400 });
     }
 
-    // Build Stripe line items using server-trusted product prices.
-    const lineItems = await Promise.all(
-      items.map(async (item, idx) => {
-        const productId = item.id || item.productId;
-        const quantity = Number(item.quantity || 1);
+    // Build Stripe line items - use price from cart item (already in øre)
+    const lineItems = items.map((item, idx) => {
+      const quantity = Number(item.quantity || 1);
+      const amount = Number(item.price || 0);
 
-        if (!productId || typeof productId !== 'string') {
-          throw new Error(`Item ${idx} is missing a valid product id`);
-        }
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error(`Item ${idx} has invalid quantity: ${item.quantity}`);
+      }
 
-        if (!Number.isInteger(quantity) || quantity <= 0) {
-          throw new Error(`Item ${idx} has invalid quantity: ${item.quantity}`);
-        }
+      if (!Number.isInteger(amount) || amount <= 0) {
+        throw new Error(`Item ${idx} has invalid price: ${amount}`);
+      }
 
-        const product = await stripe.products.retrieve(productId);
-        if (!product?.default_price) {
-          throw new Error(`Product ${productId} has no default price`);
-        }
+      console.log("Line item:", item.name, "price:", amount, "øre ×", quantity);
 
-        const priceData = await stripe.prices.retrieve(product.default_price);
-        const amount = priceData?.unit_amount;
-
-        if (!Number.isInteger(amount) || amount <= 0) {
-          throw new Error(`Product ${productId} has invalid unit amount: ${amount}`);
-        }
-
-        console.log("Trusted line item amount (øre):", amount, "name:", product.name, "qty:", quantity);
-
-        return {
-          price_data: {
-            currency: 'nok',
-            product_data: { name: product.name },
-            unit_amount: amount,
-          },
-          quantity,
-        };
-      })
-    );
+      return {
+        price_data: {
+          currency: 'nok',
+          product_data: { name: item.name || 'Produkt' },
+          unit_amount: amount,
+        },
+        quantity,
+      };
+    });
 
     // Add shipping as a line item
-    const shippingId = shipping?.method || 'standard';
+    const shippingId = shipping?.id || shipping?.method || 'standard';
     const selectedShipping = SHIPPING_OPTIONS[shippingId] || SHIPPING_OPTIONS.standard;
 
     console.log("Trusted shipping (øre):", selectedShipping.cost, "method:", selectedShipping.id);
@@ -175,10 +161,10 @@ export async function POST(req) {
     let userMsg = "Feil ved betaling. Prøv igjen.";
     let status = 500;
 
-    if (err.message.includes('missing a valid product id')) {
-      userMsg = "Mangler produkt-ID i handlekurven. Oppdater siden og legg varen i handlekurven på nytt.";
-      status = 400;
-    }
+if (err.message.includes('missing a valid product id') || err.message.includes('has no default price')) {
+       userMsg = "Mangler vare i handlekurven. Oppdater siden og legg varen i handlekurven på nytt.";
+       status = 400;
+     }
     if (err.message.includes('minimum')) {
       userMsg = "Ordresummen må være minst 3 NOK.";
       status = 400;

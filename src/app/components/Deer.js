@@ -1,5 +1,7 @@
-import { useGLTF, useAnimations } from '@react-three/drei';
+'use client';
+
 import { useRef, useEffect } from 'react';
+import { useGLTF, useAnimations } from '@react-three/drei';
 
 export default function Deer({ modelPath, ...props }) {
   const ref = useRef();
@@ -7,12 +9,16 @@ export default function Deer({ modelPath, ...props }) {
   const { actions } = useAnimations(animations, ref);
 
   useEffect(() => {
-    if (actions && animations.length > 0) {
-      actions[animations[0].name]?.play();
+    if (!animations || animations.length === 0) return;
+    const first = animations[0];
+    const action = actions?.[first.name];
+    if (action) {
+      action.reset().play();
     }
   }, [actions, animations]);
 
-  useGLTF.preload(modelPath);
-
   return <primitive ref={ref} object={scene} {...props} />;
 }
+
+// optional: preload
+useGLTF.preload('/models/deer/scene.gltf');

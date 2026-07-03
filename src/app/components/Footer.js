@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function Footer() {
   return (
-    <footer className="bg-[#001f3f] text-white py-6 px-4 font-sans">
+    <footer className="bg-[#001f3f] text-white py-12 px-6 font-sans">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Branding Section */}
         <Link href="/" className="flex items-center space-x-3 group">
@@ -34,7 +34,7 @@ export default function Footer() {
       </div>
 
       {/* Bottom Strip */}
-      <div className="mt-6 text-center text-xs text-gray-400 tracking-wide">
+      <div className="mt-8 text-center text-xs text-gray-400 tracking-wide">
         © {new Date().getFullYear()} NORYA. Alle rettigheter forbeholdt.
       </div>
     </footer>

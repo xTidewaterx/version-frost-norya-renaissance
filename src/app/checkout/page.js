@@ -122,35 +122,35 @@ useEffect(() => {
   }
 
   return (
-    <main className="min-h-screen bg-blue-50 flex flex-col items-center justify-center p-6">
-      <h1 className="text-2xl font-semibold mb-6">Kasse</h1>
+    <main className="min-h-screen bg-ice-deep flex flex-col items-center justify-center p-6">
+      <h1 className="text-2xl font-semibold mb-6 text-glacial-white">Kasse</h1>
 
-      {/* Cart summary */}
-      <div className="w-full max-w-md mb-6 bg-white rounded-xl shadow p-6">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between mb-2">
-            <div>
-              <p className="font-medium">{item.name}</p>
-              <p className="text-sm text-gray-500">x{item.quantity}</p>
-            </div>
-            <p>{(item.price / 100).toFixed(2)} NOK</p>
-          </div>
-        ))}
-        <hr className="my-4" />
-        <p className="text-lg font-semibold">Delsum: {(subtotalCents / 100).toFixed(2)} NOK</p>
+{/* Cart summary */}
+       <div className="w-full max-w-md mb-6 bg-glacial-white rounded-xl shadow p-6">
+         {items.map((item) => (
+           <div key={item.id} className="flex items-center justify-between mb-2">
+             <div>
+               <p className="font-medium text-charcoal-text">{item.name}</p>
+               <p className="text-sm text-muted-text">x{item.quantity}</p>
+             </div>
+             <p className="text-charcoal-text">{(item.price / 100).toFixed(2)} NOK</p>
+           </div>
+         ))}
+         <hr className="my-4 border-yellow-500" />
+         <p className="text-lg font-semibold text-charcoal-text">Delsum: {(subtotalCents / 100).toFixed(2)} NOK</p>
 
-        {/* Shipping selector */}
-        <div className="mt-4">
-          <label className="block mb-2 font-medium">Fraktmetode</label>
-          <select
-            value={selectedShipping.id}
-            onChange={(e) =>
-              setSelectedShipping(
-                SHIPPING_OPTIONS.find(option => option.id === e.target.value)
-              )
-            }
-            className="w-full p-2 border rounded-lg"
-          >
+{/* Shipping selector */}
+         <div className="mt-4">
+           <label className="block mb-2 font-medium text-charcoal-text">Fraktmetode</label>
+           <select
+             value={selectedShipping.id}
+             onChange={(e) =>
+               setSelectedShipping(
+                 SHIPPING_OPTIONS.find(option => option.id === e.target.value)
+               )
+             }
+             className="w-full p-2 border border-border-cool rounded-lg text-charcoal-text"
+           >
             {SHIPPING_OPTIONS.map(option => (
               <option key={option.id} value={option.id}>
                 {option.label} (+{(option.price).toFixed(0)} NOK)
@@ -159,12 +159,12 @@ useEffect(() => {
           </select>
         </div>
 
-        <p className="mt-4 text-lg font-semibold">
-          Totalt: {(totalCents / 100).toFixed(2)} NOK
-        </p>
-      </div>
+<p className="mt-4 text-lg font-semibold text-charcoal-text">
+           Totalt: {(totalCents / 100).toFixed(2)} NOK
+         </p>
+       </div>
 
-      {loadingSecret && <p className="text-gray-600 mb-4">Forbereder betaling…</p>}
+       {loadingSecret && <p className="text-arctic-mist mb-4">Forbereder betaling…</p>}
 {clientSecret && (
   <>
     {console.log("Mounting Elements with clientSecret:", clientSecret)}

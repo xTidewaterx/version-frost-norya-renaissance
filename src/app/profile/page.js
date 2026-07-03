@@ -33,6 +33,8 @@ const PROFILE_THEMES = [
   { id: 'stein', name: 'Stein', accent: '#4b5563', surface: '#f1f3f5', border: '#d5dbe2' },
   { id: 'kyst', name: 'Kyst', accent: '#005f73', surface: '#eaf5f7', border: '#bdd9de' },
   { id: 'vin', name: 'Vinrod', accent: '#6f2f3b', surface: '#f8ecef', border: '#e6c5cc' },
+  { id: 'sol', name: 'Sol', accent: '#9f5c29', surface: '#fef7f0', border: '#fad9b5' },
+  { id: 'havs', name: 'Havets Grå', accent: '#5d758e', surface: '#f0f4f8', border: '#c2d0e0' },
 ];
 
 const hexToRgba = (hex, alpha) => {
@@ -263,189 +265,231 @@ const ImageCropUploader = () => {
   }, [db, user]);
 
   const activeTheme = PROFILE_THEMES.find((theme) => theme.id === profileThemeId) || PROFILE_THEMES[0];
-  const profileSurfaceStyle = {
-    background: activeTheme.surface,
-  };
 
-  const UploadProductIfSignedIn = () =>
-    user?.uid ? (
-      <>
-        {!showNewProduct ? (
-            <button
-              onClick={() => setShowNewProduct(true)}
-              className="inline-flex items-center rounded-full border px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95 active:brightness-90"
-              style={{ backgroundColor: activeTheme.accent, borderColor: activeTheme.accent }}
-            >
-              Nytt Produkt
-            </button>
-        ) : (
-          <div className="rounded-[1.35rem] bg-white/55 p-5 sm:p-6">
-            <PostProduct />
-            <button
-              onClick={() => setShowNewProduct(false)}
-              className="mt-5 w-full rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Lukk
-            </button>
-          </div>
-        )}
-      </>
-    ) : null;
+const UploadProductIfSignedIn = () =>
+  user?.uid ? (
+    <>
+      {!showNewProduct ? (
+        <button
+          onClick={() => setShowNewProduct(true)}
+          className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 active:brightness-90"
+          style={{ backgroundColor: activeTheme.accent }}
+        >
+          <span className="inline-block h-2 w-2 rounded-full bg-white/80 shadow-sm"></span>
+          Nytt Produkt
+        </button>
+      ) : (
+        <div className="rounded-[1.35rem] bg-white/60 backdrop-blur-xl p-5 sm:p-6 shadow-sm border border-slate-200/40">
+          <PostProduct />
 
-  return (
-    <div className={`${spaceGrotesk.className} relative min-h-screen overflow-hidden px-4 pb-16 pt-32 text-slate-900 sm:px-8`} style={profileSurfaceStyle}>
-      <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-14">
-        {user && (
-          <section className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
-            <div className="pt-2">
-              {!editing ? (
-                <>
-                  <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-                    <div className="relative h-28 w-28 shrink-0">
-                      {showHalo && <div className="animate-glow absolute inset-0 rounded-full bg-slate-300/30 blur-xl"></div>}
-                      {profilePic ? (
-                        <img
-                          src={profilePic}
-                          alt="Profil"
-                          className="relative z-10 h-full w-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="relative z-10 flex h-full w-full items-center justify-center rounded-full bg-white/70 text-2xl font-semibold text-slate-500">
-                          {effectiveName.slice(0, 1).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+          <button
+            onClick={() => setShowNewProduct(false)}
+            className="mt-5 w-full rounded-full border border-slate-300 bg-white/70 px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-white"
+          >
+            Lukk
+          </button>
+        </div>
+      )}
+    </>
+  ) : null;
 
-                    <div className="text-center sm:text-left">
-                      <p className="text-xs uppercase tracking-[0.32em] text-slate-500">Profiloversikt</p>
-      <h1 className={`${roboto.className} mt-2 text-2xl font-semibold text-slate-900`}>{effectiveName}</h1>
-      <div className="mt-3 text-center text-xs font-medium text-slate-500 sm:text-left">
-        Tema: {activeTheme.name}
-      </div>
-                    </div>
-                  </div>
+return (
+  <div className={`${spaceGrotesk.className} relative min-h-screen overflow-hidden pb-16 pt-32 text-slate-900`}>
+    <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 sm:px-8">
 
-                  <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                    <button
-                      onClick={() => setEditing(true)}
-                      className="rounded-full border px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95 active:brightness-90"
-                      style={{ backgroundColor: activeTheme.accent, borderColor: activeTheme.accent }}
-                    >
-                      Rediger Profil
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await auth.signOut();
-                        alert('Du er logget ut.');
-                      }}
-                      className="rounded-full border border-slate-300 bg-white/60 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-white"
-                    >
-                      Logg Ut
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="mb-5 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-                    Redigeringsmodus
-                  </div>
-                  <h1 className={`${roboto.className} text-2xl font-semibold text-slate-900`}>
-                    Oppdater <span className="text-slate-700">{effectiveName}</span>
-                  </h1>
-
-                  <div className="mt-6 space-y-5">
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-700">Visningsnavn</label>
-                      <input
-                        className="w-full rounded-full border border-slate-300 bg-white/70 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        placeholder="Skriv nytt navn"
+      {/* Logged-in user */}
+      {user && (
+        <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">
+          <div className="p-8 sm:p-10">
+            {!editing ? (
+              /* VIEW MODE */
+              <>
+                <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+                  <div className="relative h-28 w-28 shrink-0">
+                    {showHalo && (
+                      <div className="animate-glow absolute inset-0 rounded-full bg-slate-300/30 blur-xl"></div>
+                    )}
+                    {profilePic ? (
+                      <img
+                        src={profilePic}
+                        alt="Profil"
+                        className="relative z-10 h-full w-full rounded-full object-cover shadow-md ring-4 ring-white"
                       />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-700">Profilbilde</label>
-                      <input
-                        type="file"
-                        onChange={handleFileChange}
-                        className="w-full text-sm file:mr-4 file:rounded-full file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-slate-700 hover:file:bg-slate-100"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-700">Profilfarge</label>
-                      <div className="flex flex-wrap gap-3">
-                        {PROFILE_THEMES.map((theme) => {
-                          const selected = theme.id === profileThemeId;
-                          return (
-                            <button
-                              key={theme.id}
-                              type="button"
-                              onClick={() => setProfileThemeId(theme.id)}
-                              title={theme.name}
-                              aria-label={`Velg ${theme.name}`}
-                              className="h-6 w-6 rounded-full transition hover:scale-110"
-                              style={{
-                                backgroundColor: theme.accent,
-                                boxShadow: selected ? `0 0 0 3px ${hexToRgba(theme.accent, 0.22)}` : 'none',
-                              }}
-                            />
-                          );
-                        })}
-                      </div>
-                      <p className="mt-2 text-xs text-slate-500">Denne fargen brukes kun pa profilsider.</p>
-                    </div>
-
-                    {imageSrc && (
-                      <div className="relative aspect-square w-full overflow-hidden rounded-[1.35rem] bg-slate-100">
-                        <Cropper
-                          image={imageSrc}
-                          crop={crop}
-                          zoom={zoom}
-                          cropShape="round"
-                          aspect={1}
-                          onCropChange={setCrop}
-                          onZoomChange={setZoom}
-                          onCropComplete={onCropComplete}
-                        />
+                    ) : (
+                      <div className="relative z-10 flex h-full w-full items-center justify-center rounded-full bg-white/70 text-2xl font-semibold text-slate-500 shadow-md ring-4 ring-white">
+                        {effectiveName.slice(0, 1).toUpperCase()}
                       </div>
                     )}
+                  </div>
 
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleUpload}
-                        className="flex-1 rounded-full border px-4 py-3 text-sm font-semibold text-white transition hover:brightness-95 active:brightness-90"
-                        style={{ backgroundColor: activeTheme.accent, borderColor: activeTheme.accent }}
-                      >
-                        Lagre
-                      </button>
-                      <button
-                        onClick={() => setEditing(false)}
-                        className="flex-1 rounded-full border border-slate-300 bg-white/60 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-white"
-                      >
-                        Avbryt
-                      </button>
+                  <div className="flex-1 text-center sm:text-left">
+                    <div className="mb-2 flex items-center justify-center gap-2 sm:justify-start">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                      <p className="text-xs uppercase tracking-[0.28em] font-medium text-slate-500">
+                        Profiloversikt
+                      </p>
+                    </div>
+                    <h1 className={`${roboto.className} text-3xl font-semibold text-slate-900 tracking-tight sm:text-4xl`}>
+                      {effectiveName}
+                    </h1>
+                    <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500 sm:justify-start">
+                      <span className="h-2 w-2 rounded-full bg-sky-400" />
+                      <span>Tema: <span className="font-semibold text-slate-700">{activeTheme.name}</span></span>
                     </div>
                   </div>
-                </>
-              )}
+                </div>
+
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="rounded-full px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 active:brightness-90"
+                    style={{ backgroundColor: activeTheme.accent }}
+                  >
+                    Rediger Profil
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await auth.signOut();
+                      alert('Du er logget ut.');
+                    }}
+                    className="rounded-full border border-slate-300 bg-white/70 px-5 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-white"
+                  >
+                    Logg Ut
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* EDIT MODE */
+              <>
+                <div className="mb-5 flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  <div className="text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
+                    Redigeringsmodus
+                  </div>
+                </div>
+
+                <h1 className={`${roboto.className} text-2xl font-semibold text-slate-900`}>
+                  Oppdater <span className="text-slate-700">{effectiveName}</span>
+                </h1>
+
+                <div className="mt-6 space-y-5">
+                  {/* Name */}
+                  <div>
+                    <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+                      Visningsnavn
+                    </label>
+                    <input
+                      className="w-full rounded-2xl border border-slate-300 bg-white/70 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="Skriv nytt navn"
+                    />
+                  </div>
+
+                  {/* Profile Picture Upload */}
+                  <div>
+                    <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      Profilbilde
+                    </label>
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      className="w-full text-sm file:mr-4 file:rounded-full file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-slate-700 hover:file:bg-slate-100"
+                    />
+                  </div>
+
+                  {/* Theme Colors */}
+                  <div>
+                    <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
+                      Profilfarge
+                    </label>
+                    <div className="flex flex-wrap gap-3">
+                      {PROFILE_THEMES.map((theme) => {
+                        const selected = theme.id === profileThemeId;
+                        return (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            onClick={() => setProfileThemeId(theme.id)}
+                            title={theme.name}
+                            aria-label={`Velg ${theme.name}`}
+                            className="h-7 w-7 rounded-full shadow-sm transition hover:scale-110"
+                            style={{
+                              backgroundColor: theme.accent,
+                              boxShadow: selected
+                                ? `0 0 0 3px ${hexToRgba(theme.accent, 0.25)}`
+                                : 'none',
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">Denne fargen brukes kun på profilsider.</p>
+                  </div>
+
+                  {/* Cropper */}
+                  {imageSrc && (
+                    <div className="relative aspect-square w-full overflow-hidden rounded-[1.35rem] bg-slate-100 shadow-inner">
+                      <Cropper
+                        image={imageSrc}
+                        crop={crop}
+                        zoom={zoom}
+                        cropShape="round"
+                        aspect={1}
+                        onCropChange={setCrop}
+                        onZoomChange={setZoom}
+                        onCropComplete={onCropComplete}
+                      />
+                    </div>
+                  )}
+
+                  {/* Save / Cancel */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleUpload}
+                      className="flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 active:brightness-90"
+                      style={{ backgroundColor: activeTheme.accent }}
+                    >
+                      Lagre
+                    </button>
+
+                    <button
+                      onClick={() => setEditing(false)}
+                      className="flex-1 rounded-full border border-slate-300 bg-white/60 px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-white"
+                    >
+                      Avbryt
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Logged-out user */}
+      {!user && (
+        <section className="rounded-[2rem] border border-slate-200/70 bg-white/80 backdrop-blur-xl p-8 shadow-sm sm:p-10">
+          <div className="mx-auto max-w-2xl">
+            <div className="mb-8 flex items-center gap-3">
+              <span className="h-3 w-3 rounded-full bg-rose-400" />
+              <span className="text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
+                Profiltilgang
+              </span>
             </div>
 
-          </section>
-        )}
+            <h1 className={`${roboto.className} text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl`}>
+              Min Profil
+            </h1>
 
-        {!user && (
-          <section className="mx-auto w-full max-w-3xl pt-2">
-            <div className="mb-5 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-              Profiltilgang
-            </div>
-            <h1 className={`${roboto.className} text-2xl font-semibold text-slate-900`}>Min Profil</h1>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            <p className="mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">
               Logg inn eller opprett bruker for å administrere profil, produkter og favoritter.
             </p>
 
-            <div className="mt-6">
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
               <OnboardingNotice
                 storageKey="norya_profile_access_intro_seen"
                 title="Ny bruker?"
@@ -455,77 +499,102 @@ const ImageCropUploader = () => {
               </OnboardingNotice>
             </div>
 
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              <div>
-                <SignInUser />
-              </div>
-              <div>
-                <RegisterUser />
-              </div>
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              <SignInUser />
+              <RegisterUser />
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
+  
 
         {user && (
-          <section className="grid gap-12 xl:grid-cols-2">
-            <div>
-              <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-                <ColorDot color={activeTheme.accent} />
-                Produkter
-              </div>
+          <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">
+            <div className="p-8 sm:p-10">
+              <div className="mb-8 grid gap-10 xl:grid-cols-2">
+                {/* Products */}
+                <div>
+                  <div className="mb-5 flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-sky-400" />
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
+                      <span className="h-2 w-2 rounded-full bg-sky-400" />
+                      Produkter
+                      <span className="rounded-full border border-slate-300 bg-white/80 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                        {creatorProducts.length}
+                      </span>
+                    </div>
+                  </div>
 
-              {loadingProducts ? (
-                <p className="text-slate-600">Laster produkter...</p>
-              ) : creatorProducts.length === 0 ? (
-                <p className="border-t border-slate-900/8 pt-4 text-sm text-slate-600">Ingen produkter funnet.</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  {creatorProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
+                  {loadingProducts ? (
+                    <p className="text-slate-600">Laster produkter...</p>
+                  ) : creatorProducts.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-4 text-sm text-slate-600">Ingen produkter funnet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                      {creatorProducts.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div>
-              <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-                <ColorDot color={activeTheme.accent} />
-                Favoritter
-              </div>
+                {/* Favorites */}
+                <div>
+                  <div className="mb-5 flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-rose-400" />
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
+                      <span className="h-2 w-2 rounded-full bg-rose-400" />
+                      Favoritter
+                      <span className="rounded-full border border-slate-300 bg-white/80 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                        {favoriteProducts.length}
+                      </span>
+                    </div>
+                  </div>
 
-              {favoriteProducts.length === 0 ? (
-                <p className="border-t border-slate-900/8 pt-4 text-sm text-slate-600">
-                  Ingen favoritter funnet. Gå til Produkter og legg til favoritter for å vise dem her.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  {favoriteProducts.map((favorite) => (
-                    <ProductCard key={favorite.id} product={favorite} favorite />
-                  ))}
+                  {favoriteProducts.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-4 text-sm text-slate-600">
+                      Ingen favoritter funnet. Gå til Produkter og legg til favoritter for å vise dem her.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                      {favoriteProducts.map((favorite) => (
+                        <ProductCard key={favorite.id} product={favorite} favorite />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </section>
         )}
 
         {user && (
-          <section className="pt-2">
-            <h2 className={`${roboto.className} mb-5 text-2xl font-semibold text-slate-900`}>Nytt produkt</h2>
-            <OnboardingNotice
-              storageKey="norya_creator_tools_intro_seen"
-              title="Skaperveiledning"
-              buttonLabel="Klar"
-              className="mb-6"
-            >
-              Trykk Nytt Produkt for å åpne publiseringsskjemaet. Du kan når som helst redigere eksisterende produkter fra produktkortene under.
-            </OnboardingNotice>
-            <UploadProductIfSignedIn />
+          <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">
+            <div className="p-8 sm:p-10">
+              <div className="mb-5 flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-amber-400" />
+                <h2 className={`${roboto.className} text-2xl font-semibold text-slate-900`}>
+                  Nytt produkt
+                </h2>
+              </div>
+              <OnboardingNotice
+                storageKey="norya_creator_tools_intro_seen"
+                title="Skaperveiledning"
+                buttonLabel="Klar"
+                className="mb-6"
+              >
+                Trykk Nytt Produkt for å åpne publiseringsskjemaet. Du kan når som helst redigere eksisterende produkter fra produktkortene under.
+              </OnboardingNotice>
+              <UploadProductIfSignedIn />
+            </div>
           </section>
         )}
 
         {user && (
-          <section className="pt-2">
-            <PaymentInfo activeTheme={activeTheme} />
+          <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">
+            <div className="p-8 sm:p-10">
+              <PaymentInfo activeTheme={activeTheme} />
+            </div>
           </section>
         )}
       </main>

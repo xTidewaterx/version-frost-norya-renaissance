@@ -480,7 +480,7 @@ export default function ProfilePage() {
   if (!profileUser) {
     return (
       <div className="min-h-screen bg-slate-50 px-6 pt-36">
-        <p className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-lg text-slate-600 shadow-sm">
+        <p className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white px-8 py-12 text-center text-lg text-slate-600 shadow-sm">
           Laster profil...
         </p>
       </div>
@@ -499,14 +499,14 @@ export default function ProfilePage() {
   const visiblePosts = [...showcasePosts, ...defaults.slice(showcasePosts.length)].slice(0, 8);
 
   return (
-    <div className={`${spaceGrotesk.className} min-h-screen px-4 pb-16 pt-24 text-slate-900 sm:px-8 lg:pt-28`} style={profileSurfaceStyle}>
-      <div className="mx-auto w-full max-w-6xl space-y-8">
-        <section className="relative overflow-hidden rounded-3xl border bg-white shadow-sm" style={{ borderColor: activeTheme.border }}>
+    <div className={`${spaceGrotesk.className} min-h-screen px-5 pb-24 pt-24 text-slate-900 sm:px-10 lg:px-14 lg:pt-32`} style={profileSurfaceStyle}>
+      <div className="mx-auto w-full max-w-6xl space-y-10">
+        <section className="relative overflow-hidden rounded-[2rem] border bg-white/95 shadow-sm" style={{ borderColor: activeTheme.border }}>
           <div
-            className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full blur-3xl"
+            className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full blur-3xl"
             style={{ backgroundColor: hexToRgba(activeTheme.accent, 0.22) }}
           />
-          <div className="px-6 py-6 sm:px-10 sm:py-7">
+          <div className="px-8 py-8 sm:px-12 sm:py-10">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
               <img
                 src={photoURL}
@@ -562,8 +562,8 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
+        <section className="rounded-[2rem] border border-slate-200 bg-white/90 p-8 shadow-sm sm:p-10">
+          <div className="mb-6 flex items-center justify-between gap-3">
             <h2 className={`${cormorant.className} text-3xl font-semibold text-slate-900 sm:text-4xl`}></h2>
             {editing && isOwnProfile && (
               <div className="flex items-center gap-2">
@@ -582,9 +582,9 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[0, 1, 2, 3].map((columnIndex) => (
-              <div key={`column-${columnIndex}`} className="space-y-4">
+              <div key={`column-${columnIndex}`} className="space-y-5">
                 {visiblePosts
                   .map((post, idx) => ({ post, idx }))
                   .filter(({ idx }) => idx % 4 === columnIndex)
@@ -701,11 +701,11 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="rounded-[2rem] border border-[#eef1f5] bg-[#f8fafb] p-6 shadow-sm sm:p-10">
           <h2 className={`${cormorant.className} text-3xl font-semibold text-slate-900 sm:text-4xl`}>About The Artist</h2>
           {editing ? (
             <>
-              <div className="mt-4">
+              <div className="mt-5">
                 <label className="mb-2 block text-sm font-medium text-slate-700">Profilfarge</label>
                 <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
                   {PROFILE_THEMES.map((theme) => {
@@ -731,20 +731,20 @@ export default function ProfilePage() {
               </div>
 
               <textarea
-                className="mt-4 h-44 w-full rounded-2xl border border-slate-300 p-4 text-base text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                className="mt-5 h-44 w-full rounded-2xl border border-slate-200 bg-white/90 p-4 text-base text-slate-800 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Write a short artist bio..."
               />
             </>
           ) : (
-            <p className="mt-4 text-base leading-relaxed text-slate-700 sm:text-lg">
+            <p className="mt-5 text-base leading-relaxed text-slate-700 sm:text-lg">
               {bio || 'Denne skaperen har ikke lagt inn en beskrivelse ennå.'}
             </p>
           )}
 
           {editing && isOwnProfile && (
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button
                 onClick={handleSave}
                 disabled={uploading}
@@ -758,14 +758,10 @@ export default function ProfilePage() {
           )}
         </section>
 
-        {isOwnProfile && (
-          <PaymentInfo activeTheme={activeTheme} />
-        )}
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="rounded-[2rem] border border-[#f1dde2] bg-[#fff5f7] p-6 shadow-sm sm:p-10">
           <div className="mb-5 flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Favoritter</h2>
-            <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600">
+            <span className="rounded-full border border-slate-300 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600">
               {favoritesCount}
             </span>
           </div>
@@ -773,7 +769,7 @@ export default function ProfilePage() {
           {loadingFavorites ? (
             <p className="text-slate-600">Laster favoritter...</p>
           ) : favoriteProducts.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-slate-600">
+            <p className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-4 text-slate-600">
               Ingen favoritter tilgjengelig.
             </p>
           ) : (
@@ -782,7 +778,7 @@ export default function ProfilePage() {
                 <a
                   key={product.id}
                   href={`/products/${product.id}`}
-                  className="group overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_6px_16px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]"
+                  className="group overflow-hidden rounded-2xl border border-white bg-white p-3 shadow-[0_6px_16px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]"
                 >
                   <div className="overflow-hidden rounded-xl bg-slate-100">
                     <img
@@ -803,10 +799,10 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="rounded-[2rem] border border-[#e8ede6] bg-[#f6faf5] p-6 shadow-sm sm:p-10">
           <div className="mb-5 flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Produkter fra {displayName}</h2>
-            <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600">
+            <span className="rounded-full border border-slate-300 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600">
               {productCount}
             </span>
           </div>
@@ -814,7 +810,7 @@ export default function ProfilePage() {
           {loadingCreatorProducts ? (
             <p className="text-slate-600">Laster produkter...</p>
           ) : creatorProducts.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-slate-600">
+            <p className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-4 text-slate-600">
               Denne skaperen har ingen produkter ute ennå.
             </p>
           ) : (
@@ -823,7 +819,7 @@ export default function ProfilePage() {
                 <a
                   key={product.id}
                   href={`/products/${product.id}`}
-                  className="group w-64 shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_6px_16px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]"
+                  className="group w-64 shrink-0 snap-start overflow-hidden rounded-2xl border border-white bg-white p-3 shadow-[0_6px_16px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]"
                 >
                   <div className="overflow-hidden rounded-xl bg-slate-100">
                     <img
@@ -842,10 +838,16 @@ export default function ProfilePage() {
           )}
         </section>
 
+        {isOwnProfile && (
+          <section className="rounded-[2rem] border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-10">
+            <PaymentInfo activeTheme={activeTheme} />
+          </section>
+        )}
+
         {isChatVisible && chatId && currentUser && (
-          <section ref={chatSectionRef} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <section ref={chatSectionRef} className="rounded-[2rem] border border-slate-200 bg-white/95 p-6 shadow-sm sm:p-10">
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Samtale</h2>
-            <div className="mt-4">
+            <div className="mt-5">
               <ChatWindow chatId={chatId} currentUserId={currentUser.uid} />
             </div>
           </section>
@@ -855,22 +857,22 @@ export default function ProfilePage() {
       {/* Login Modal */}
       {showLogin && !currentUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-7">
+          <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white/95 p-8 shadow-2xl sm:p-10">
             <h2 className="text-center text-2xl font-semibold text-slate-900">Logg inn for å fortsette</h2>
-            <p className="mt-2 text-center text-sm text-slate-600">Du må være logget inn for å sende meldinger.</p>
+            <p className="mt-3 text-center text-sm text-slate-600">Du må være logget inn for å sende meldinger.</p>
 
-            <form onSubmit={handleSignIn} className="mt-5">
+            <form onSubmit={handleSignIn} className="mt-6">
               <input
                 type="email"
                 placeholder="E-post"
-                className="mb-3 w-full rounded-xl border border-slate-300 p-3 text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                className="mb-3 w-full rounded-xl border border-slate-300 bg-white/90 p-3 text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
               <input
                 type="password"
                 placeholder="Passord"
-                className="mb-3 w-full rounded-xl border border-slate-300 p-3 text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                className="mb-3 w-full rounded-xl border border-slate-300 bg-white/90 p-3 text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -892,7 +894,7 @@ export default function ProfilePage() {
 
             <button
               onClick={() => setShowLogin(false)}
-              className="mt-3 w-full text-center text-sm text-slate-500 underline"
+              className="mt-4 w-full text-center text-sm text-slate-500 underline"
             >
               Avbryt
             </button>

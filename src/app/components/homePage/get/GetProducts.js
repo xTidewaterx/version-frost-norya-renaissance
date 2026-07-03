@@ -74,9 +74,9 @@ export default function GetProducts({ variant = 'home' }) {
   const [favouritesByProduct, setFavouritesByProduct] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
   const [sortBy, setSortBy] = useState('featured');
   const [activeCollection, setActiveCollection] = useState('all');
+  const [priceRange, setPriceRange] = useState('all');
 
   useEffect(() => {
     async function fetchProducts() {
@@ -178,33 +178,56 @@ export default function GetProducts({ variant = 'home' }) {
 
     const collectionFiltered = products.filter((product, index) => {
       if (!selectedCollection) return true;
+      if (!selectedCollection.predicate) return true;
       return selectedCollection.predicate(product, index);
     });
 
-    const searchFiltered = collectionFiltered.filter((product) =>
+    let base = collectionFiltered;
+
+    if (priceRange !== 'all') {
+      base = base.filter((product) => {
+        const price = Number(product.price);
+        switch (priceRange) {
+          case 'under-500':
+            return price < 500;
+          case 'under-1000':
+            return price < 1000;
+          case '1000-2000':
+            return price >= 1000 && price <= 2000;
+          case '2000-5000':
+            return price > 2000 && price <= 5000;
+          case 'over-5000':
+            return price > 5000;
+          default:
+            return true;
+        }
+      });
+    }
+
+    const searchFiltered = base.filter((product) =>
       product.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
     );
 
-    const base = searchFiltered;
+    const finalProducts = searchFiltered;
 
     if (sortBy === 'price-asc') {
-      return [...base].sort((a, b) => Number(a.price) - Number(b.price));
+      return [...finalProducts].sort((a, b) => Number(a.price) - Number(b.price));
     }
 
     if (sortBy === 'price-desc') {
-      return [...base].sort((a, b) => Number(b.price) - Number(a.price));
+      return [...finalProducts].sort((a, b) => Number(b.price) - Number(a.price));
     }
 
     if (sortBy === 'name') {
-      return [...base].sort((a, b) => a.name.localeCompare(b.name, 'no'));
+      return [...finalProducts].sort((a, b) => a.name.localeCompare(b.name, 'no'));
     }
 
-    return base;
-  }, [products, searchTerm, sortBy, activeCollection, collectionOptions]);
+    return finalProducts;
+  }, [products, searchTerm, sortBy, activeCollection, collectionOptions, priceRange]);
 
-  const visibleProducts = isProductsPage ? filteredProducts : filteredProducts.slice(0, 4);
+const visibleProducts = isProductsPage ? filteredProducts : filteredProducts.slice(0, 6);
 
-  const placeholdersCount = isProductsPage ? 8 : 4;
+   const placeholdersCount = isProductsPage ? 8 : 6;
   const placeholderCards = Array.from({ length: placeholdersCount }).map((_, idx) => (
     <div
       key={idx}
@@ -239,59 +262,66 @@ export default function GetProducts({ variant = 'home' }) {
             små opplag og materialer laget for å vare.
           </p>
 
-          <div className="relative mt-6 flex flex-wrap gap-2">
-            {collectionOptions.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setActiveCollection(option.id)}
-                className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                  activeCollection === option.id
-                    ? 'border border-slate-900 bg-slate-900 text-white'
-                    : 'border border-slate-300 bg-white/85 text-slate-700 hover:border-slate-400 hover:text-slate-900'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <div className="relative mt-6 flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2">
+              {collectionOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setActiveCollection(option.id)}
+                  className={`rounded-full px-4 py-2 text-sm transition-colors ${
+                    activeCollection === option.id
+                      ? 'border border-slate-900 bg-slate-900 text-white'
+                      : 'border border-slate-300 bg-white/85 text-slate-700 hover:border-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
 
-          <div className="relative mt-4 grid gap-3 md:grid-cols-[auto_auto_auto] md:justify-start">
-            <button
-              type="button"
-              onClick={() => setShowSearch((prev) => !prev)}
-              className="rounded-2xl border border-slate-300/80 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-900"
-            >
-              {showSearch ? 'Skjul søk' : 'Søk'}
-            </button>
-
-            {showSearch && (
-              <label className="flex items-center rounded-2xl border border-slate-300/80 bg-white/80 px-4 py-2 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex-1 min-w-[200px]">
                 <input
                   type="text"
-                  placeholder="Søk produktnavn"
+                  placeholder="Søk etter produktnavn..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none"
+                  className="w-full rounded-2xl border border-slate-300/80 bg-white/80 px-4 py-2 text-sm text-slate-800 placeholder:text-slate-500 shadow-sm focus:border-slate-400 focus:outline-none"
                 />
+              </div>
+
+              <label className="rounded-2xl border border-slate-300/80 bg-white/80 px-3 py-2 shadow-sm">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="h-full bg-transparent text-sm text-slate-700 focus:outline-none"
+                >
+                  <option value="featured">Utvalgt</option>
+                  <option value="price-asc">Pris: lav til høy</option>
+                  <option value="price-desc">Pris: høy til lav</option>
+                  <option value="name">Navn A-Å</option>
+                </select>
               </label>
-            )}
 
-            <label className="rounded-2xl border border-slate-300/80 bg-white/80 px-3 py-2 shadow-sm">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="h-full bg-transparent text-sm text-slate-700 focus:outline-none"
-              >
-                <option value="featured">Utvalgt</option>
-                <option value="price-asc">Pris: lav til høy</option>
-                <option value="price-desc">Pris: høy til lav</option>
-                <option value="name">Navn A-Å</option>
-              </select>
-            </label>
+              <label className="rounded-2xl border border-slate-300/80 bg-white/80 px-3 py-2 shadow-sm">
+                <select
+                  value={priceRange}
+                  onChange={(e) => setPriceRange(e.target.value)}
+                  className="h-full bg-transparent text-sm text-slate-700 focus:outline-none"
+                >
+                  <option value="all">Alle priser</option>
+                  <option value="under-500">Under 500 kr</option>
+                  <option value="under-1000">Under 1 000 kr</option>
+                  <option value="1000-2000">1 000 - 2 000 kr</option>
+                  <option value="2000-5000">2 000 - 5 000 kr</option>
+                  <option value="over-5000">Over 5 000 kr</option>
+                </select>
+              </label>
 
-            <div className="inline-flex items-center justify-center rounded-2xl border border-slate-300/80 bg-white/80 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">
-              {visibleProducts.length} produkter
+              <div className="inline-flex items-center justify-center rounded-2xl border border-slate-300/80 bg-white/80 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">
+                {visibleProducts.length} {visibleProducts.length === 1 ? 'produkt' : 'produkter'}
+              </div>
             </div>
           </div>
         </section>
@@ -318,7 +348,7 @@ export default function GetProducts({ variant = 'home' }) {
         className={`mt-6 grid ${
           isProductsPage
             ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 sm:gap-7'
-            : 'grid-cols-2 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-x-2 sm:gap-x-6 gap-y-10'
+            : 'grid-cols-2 md:grid-cols-3 gap-6 sm:gap-7'
         } px-4 ${isProductsPage ? 'sm:px-8 lg:px-10' : ''}`}
       >
         {loading

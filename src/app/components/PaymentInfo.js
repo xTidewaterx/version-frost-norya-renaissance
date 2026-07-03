@@ -201,213 +201,262 @@ const startStripeOnboarding = async () => {
     }
   };
 
-  const getStatusBadge = () => {
-    if (!accountStatus && paymentInfo?.stripeConnectId) {
-      return <span className="text-sm font-medium text-slate-500">Ukjent</span>;
-    }
-    if (!accountStatus) return null;
+const StatusDot = ({ color }) => (
+  <span
+    className="inline-block h-2 w-2 rounded-full shadow-sm"
+    style={{ backgroundColor: color }}
+  />
+);
 
-    const { details_submitted, charges_enabled, payouts_enabled } = accountStatus;
+const getStatusBadge = () => {
+  if (!accountStatus && paymentInfo?.stripeConnectId) {
+    return (
+      <div className="flex items-center gap-2">
+        <StatusDot color="#94a3b8" />
+        <span className="text-sm font-medium text-slate-500">Ukjent</span>
+      </div>
+    );
+  }
+  if (!accountStatus) return null;
 
-    if (details_submitted && charges_enabled && payouts_enabled) {
-      return (
-        <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
+  const { details_submitted, charges_enabled, payouts_enabled } = accountStatus;
+
+  if (details_submitted && charges_enabled && payouts_enabled) {
+    return (
+      <div className="flex items-center gap-2">
+        <StatusDot color="#10b981" />
+        <span className="text-sm font-semibold text-emerald-700">
           Fullt aktiv
         </span>
-      );
-    }
+      </div>
+    );
+  }
 
-    if (details_submitted && charges_enabled) {
-      return (
-        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
+  if (details_submitted && charges_enabled) {
+    return (
+      <div className="flex items-center gap-2">
+        <StatusDot color="#f59e0b" />
+        <span className="text-sm font-semibold text-amber-700">
           Under verifisering
         </span>
-      );
-    }
-
-    return (
-      <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
-        Krever handling
-      </span>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="pt-2">
-        <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-          <ColorDot color={themeColor} />
-          Inntektskilde
-        </div>
-        <p className="text-sm text-slate-600">Laster betalingsinformasjon...</p>
       </div>
     );
   }
 
   return (
-    <div className="pt-2">
-      <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-        <ColorDot color={themeColor} />
-        Inntektskilde
-      </div>
-      <h2 className="text-2xl font-semibold text-slate-900">Betalingsinformasjon</h2>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-        Koble til Stripe Connect for å motta betalinger direkte. NORYA tar en liten del av omsetningen som plattformgebyr.
-      </p>
-
-      {error && (
-        <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <span>{success}</span>
-        </div>
-      )}
-
-      {paymentInfo?.stripeConnectId ? (
-        <div className="mt-7">
-          <div className="grid gap-5 border-t border-slate-900/8 pt-5 md:grid-cols-3">
-            <div>
-              <div className="mb-2 text-xs uppercase tracking-[0.22em] text-slate-500">
-                Status
-              </div>
-              {getStatusBadge()}
-            </div>
-
-            {paymentInfo.email && (
-              <div>
-                <div className="mb-2 text-xs uppercase tracking-[0.22em] text-slate-500">
-                  Stripe E-post
-                </div>
-                <div className="text-sm font-medium text-slate-900">{paymentInfo.email}</div>
-              </div>
-            )}
-
-            {paymentInfo.connectedAt && (
-              <div>
-                <div className="mb-2 text-xs uppercase tracking-[0.22em] text-slate-500">
-                  Tilkoblet siden
-                </div>
-                <div className="text-sm font-medium text-slate-900">
-                  {new Date(paymentInfo.connectedAt).toLocaleDateString('no-NO')}
-                </div>
-              </div>
-            )}
-
-            {accountStatus && (
-              <div className="md:col-span-3">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">
-                    Konto detaljer
-                  </p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <p className="text-xs text-slate-500">Detaljer sendt</p>
-                      <p className={`text-sm font-semibold ${accountStatus.details_submitted ? 'text-emerald-700' : 'text-red-600'}`}>
-                        {String(accountStatus.details_submitted)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Betalinger aktivert</p>
-                      <p className={`text-sm font-semibold ${accountStatus.charges_enabled ? 'text-emerald-700' : 'text-red-600'}`}>
-                        {String(accountStatus.charges_enabled)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Utbetalinger aktivert</p>
-                      <p className={`text-sm font-semibold ${accountStatus.payouts_enabled ? 'text-emerald-700' : 'text-red-600'}`}>
-                        {String(accountStatus.payouts_enabled)}
-                      </p>
-                    </div>
-                  </div>
-                  {(accountStatus.requirements_currently_due || accountStatus.requirements_due || []).length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs text-slate-500">Gjenstående krav nå:</p>
-                      <p className="text-sm font-medium text-red-600">
-                        {(accountStatus.requirements_currently_due || accountStatus.requirements_due || []).join(', ')}
-                      </p>
-                    </div>
-                  )}
-                  {accountStatus.requirements_eventually_due && accountStatus.requirements_eventually_due.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-slate-500">Fremtidige krav:</p>
-                      <p className="text-sm font-medium text-amber-600">
-                        {accountStatus.requirements_eventually_due.join(', ')}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3 text-white">
-            <button
-              onClick={handleRefreshStatus}
-              disabled={loadingStatus}
-              className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loadingStatus ? 'Oppdaterer...' : 'Oppdater status'}
-            </button>
-            {accountStatus?.needsDocumentVerification && (
-              <button
-                onClick={async () => {
-                  setConnecting(true);
-                  setError(null);
-                  try {
-                    const url = await getDocumentOnboardingLink(paymentInfo.stripeConnectId);
-                    window.location.href = url;
-                  } catch (err) {
-                    setError(err.message || 'Kunne ikke åpne Stripe-dokumentopplasting.');
-                  } finally {
-                    setConnecting(false);
-                  }
-                }}
-                disabled={connecting}
-                className="flex-1 rounded-full border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {connecting ? 'Åpner...' : 'Last opp KYC-dokumenter'}
-              </button>
-            )}
-            <a
-              href={`https://dashboard.stripe.com/express/${paymentInfo.stripeConnectId}/login`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 rounded-full px-4 py-3 text-center text-sm font-semibold text-white transition hover:brightness-95 active:brightness-90"
-              style={{ backgroundColor: themeColor, borderColor: themeColor }}
-            >
-              Stripe Dashboard
-            </a>
-            <button
-              onClick={handleDisconnect}
-              className="flex-1 rounded-full border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100"
-            >
-              Koble Fra
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-7">
-          <button
-            onClick={startStripeOnboarding}
-            disabled={connecting}
-            className="w-full rounded-full px-4 py-3 text-sm font-semibold text-white transition hover:brightness-95 active:brightness-90 disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ backgroundColor: themeColor, borderColor: themeColor }}
-          >
-            {connecting ? 'Kobler til...' : 'Koble til Stripe Connect'}
-          </button>
-          <p className="mt-3 text-xs text-slate-500">
-            Du trenger en Stripe Connect-konto for å motta betalinger. Hvis du ikke har en, opprettes den underveis.
-          </p>
-        </div>
-      )}
-
-      <div className="mt-7 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-        Når du kobler til Stripe Connect, kan kundene dine sikkert betale for produktene dine. Pengene overføres direkte til din Stripe-konto, og NORYA tar en liten_prosent av hver ordre som plattformgebyr.
-      </div>
+    <div className="flex items-center gap-2">
+      <StatusDot color="#ef4444" />
+      <span className="text-sm font-semibold text-red-700">
+        Krever handling
+      </span>
     </div>
   );
+};
+
+if (loading) {
+  return (
+    <div className="pt-2 animate-fadeIn">
+      <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
+        <StatusDot color={themeColor} />
+        Inntektskilde
+      </div>
+      <p className="text-sm text-slate-600">Laster betalingsinformasjon...</p>
+    </div>
+  );
+}
+
+return (
+  <div className="pt-6 pb-10 animate-fadeIn py-12 px-6 ">
+    {/* Header */}
+    <div className="py-12 px-6 mb-8 flex items-center gap-3 text-xs font-medium uppercase tracking-[0.28em]"
+         style={{ color: themeColor }}>
+      <StatusDot color={themeColor} />
+      Inntektskilde
+    </div>
+
+    <div className="mb-10">
+      <h2 className="text-4xl font-semibold text-slate-900 tracking-tight">
+        Betalingsinformasjon
+      </h2>
+
+      <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
+        Koble til Stripe Connect for å motta betalinger direkte. NORYA tar en liten del av omsetningen som plattformgebyr.
+      </p>
+    </div>
+
+    {/* Alerts */}
+    {error && (
+      <div className="mt-6 rounded-xl border-l-4 border-red-400 bg-red-50/80 px-5 py-4 text-sm text-red-700 shadow-sm">
+        {error}
+      </div>
+    )}
+
+    {success && (
+      <div className="mt-6 rounded-xl border-l-4 border-emerald-400 bg-emerald-50/80 px-5 py-4 text-sm text-emerald-700 shadow-sm">
+        {success}
+      </div>
+    )}
+
+    {/* Connected */}
+    {paymentInfo?.stripeConnectId ? (
+      <div className="mt-10 space-y-10">
+
+        {/* Status Cards */}
+        <div className="grid gap-8 border-t border-slate-900/10 pt-8 md:grid-cols-3">
+
+          <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-slate-200 p-6 shadow-sm">
+            <div className="mb-3 text-xs uppercase tracking-[0.22em] text-slate-500">
+              Status
+            </div>
+            {getStatusBadge()}
+          </div>
+
+          {paymentInfo.email && (
+            <div className="rounded-2xl bg-emerald-50/40 backdrop-blur-xl border border-emerald-200 p-6 shadow-sm">
+              <div className="mb-3 text-xs uppercase tracking-[0.22em] text-emerald-700">
+                Stripe E‑post
+              </div>
+              <div className="text-sm font-medium text-slate-900">
+                {paymentInfo.email}
+              </div>
+            </div>
+          )}
+
+          {paymentInfo.connectedAt && (
+            <div className="rounded-2xl bg-sky-50/40 backdrop-blur-xl border border-sky-200 p-6 shadow-sm">
+              <div className="mb-3 text-xs uppercase tracking-[0.22em] text-sky-700">
+                Tilkoblet siden
+              </div>
+              <div className="text-sm font-medium text-slate-900">
+                {new Date(paymentInfo.connectedAt).toLocaleDateString('no-NO')}
+              </div>
+            </div>
+          )}
+
+          {/* Account Details */}
+          {accountStatus && (
+            <div className="md:col-span-3">
+              <div className="rounded-2xl bg-slate-50/80 backdrop-blur-xl border border-slate-200 p-8 shadow-sm">
+                <p className="text-xs font-medium uppercase tracking-[0.22em]"
+                   style={{ color: themeColor }}>
+                  Konto detaljer
+                </p>
+
+                <div className="mt-6 grid gap-6 sm:grid-cols-3">
+                  {[
+                    { label: "Detaljer sendt", value: accountStatus.details_submitted },
+                    { label: "Betalinger aktivert", value: accountStatus.charges_enabled },
+                    { label: "Utbetalinger aktivert", value: accountStatus.payouts_enabled },
+                  ].map((item, i) => (
+                    <div key={i} className="rounded-xl bg-white/70 p-4 shadow-sm">
+                      <p className="text-xs text-slate-500">{item.label}</p>
+                      <p
+                        className={`text-sm font-semibold ${
+                          item.value ? "text-emerald-700" : "text-red-600"
+                        }`}
+                      >
+                        {String(item.value)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Requirements */}
+                {(accountStatus.requirements_currently_due || []).length > 0 && (
+                  <div className="mt-6 rounded-xl border-l-4 border-amber-400 bg-amber-50/60 p-4 shadow-sm">
+                    <p className="text-xs text-slate-500">Gjenstående krav nå:</p>
+                    <p className="text-sm font-medium text-red-600">
+                      {accountStatus.requirements_currently_due.join(", ")}
+                    </p>
+                  </div>
+                )}
+
+                {accountStatus.requirements_eventually_due?.length > 0 && (
+                  <div className="mt-4 rounded-xl border-l-4 border-amber-400 bg-amber-50/60 p-4 shadow-sm">
+                    <p className="text-xs text-slate-500">Fremtidige krav:</p>
+                    <p className="text-sm font-medium text-amber-600">
+                      {accountStatus.requirements_eventually_due.join(", ")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Buttons */}
+        <div className="flex flex-wrap gap-4 text-white">
+
+          <button
+            onClick={handleRefreshStatus}
+            disabled={loadingStatus}
+            className="flex-1 rounded-full border border-slate-300 bg-white px-5 py-4 text-center text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+          >
+            {loadingStatus ? "Oppdaterer..." : "Oppdater status"}
+          </button>
+
+          {accountStatus?.needsDocumentVerification && (
+            <button
+              onClick={async () => {
+                setConnecting(true);
+                setError(null);
+                try {
+                  const url = await getDocumentOnboardingLink(paymentInfo.stripeConnectId);
+                  window.location.href = url;
+                } catch (err) {
+                  setError(err.message || "Kunne ikke åpne Stripe-dokumentopplasting.");
+                } finally {
+                  setConnecting(false);
+                }
+              }}
+              disabled={connecting}
+              className="flex-1 rounded-full border border-amber-300 bg-amber-50 px-5 py-4 text-center text-sm font-semibold text-amber-700 shadow-sm transition hover:bg-amber-100 disabled:opacity-50"
+            >
+              {connecting ? "Åpner..." : "Last opp KYC‑dokumenter"}
+            </button>
+          )}
+
+          <a
+            href={`https://dashboard.stripe.com/express/${paymentInfo.stripeConnectId}/login`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 rounded-full px-5 py-4 text-center text-sm font-semibold text-white shadow-sm transition hover:brightness-95 active:brightness-90"
+            style={{ backgroundColor: themeColor }}
+          >
+            Stripe Dashboard
+          </a>
+
+          <button
+            onClick={handleDisconnect}
+            className="flex-1 rounded-full border border-red-300 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-100"
+          >
+            Koble Fra
+          </button>
+        </div>
+      </div>
+    ) : (
+      /* Not connected */
+      <div className="mt-10">
+        <button
+          onClick={startStripeOnboarding}
+          disabled={connecting}
+          className="w-full rounded-full px-5 py-4 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 active:brightness-90 disabled:opacity-50"
+          style={{ backgroundColor: themeColor }}
+        >
+          {connecting ? "Kobler til..." : "Koble til Stripe Connect"}
+        </button>
+
+        <p className="mt-4 text-xs text-slate-500">
+          Du trenger en Stripe Connect‑konto for å motta betalinger. Hvis du ikke har en, opprettes den underveis.
+        </p>
+      </div>
+    )}
+
+    {/* Footer */}
+    <div className="mt-10 rounded-2xl bg-slate-50 border border-slate-200 p-6 text-sm text-slate-700 shadow-sm">
+      Når du kobler til Stripe Connect, kan kundene dine sikkert betale for produktene dine. Pengene overføres direkte til din Stripe‑konto, og NORYA tar en liten prosent av hver ordre som plattformgebyr.
+    </div>
+  </div>
+);
+
 }

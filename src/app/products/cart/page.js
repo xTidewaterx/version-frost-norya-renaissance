@@ -46,7 +46,7 @@ function CheckoutForm({ onBack, shippingOption, items }) {
   return (
     <div className="w-full max-w-2xl">
         <div className="mb-8 p-6 bg-glacial-white rounded-xl border border-border-cool">
-         <h3 className="font-oswald text-ice-deep mb-4">Orderoversikt</h3>
+         <h3 className="font-manrope text-ice-deep mb-4">Orderoversikt</h3>
         
         <div className="space-y-2 mb-4 pb-4 border-b border-border-cool">
           {items.map((item) => (
@@ -59,28 +59,28 @@ function CheckoutForm({ onBack, shippingOption, items }) {
 
         <div className="space-y-2 mb-4 pb-4 border-b border-border-cool">
           <div className="flex justify-between text-charcoal-text">
-            <span className="font-oswald font-bold">Subtotal:</span>
+            <span className="font-manrope font-bold">Subtotal:</span>
             <span className="font-manrope">{(subtotal / 100).toFixed(2)} NOK</span>
           </div>
           <div className="flex justify-between text-charcoal-text">
-            <span className="font-oswald font-bold">Frakt:</span>
+            <span className="font-manrope font-bold">Frakt:</span>
             <span className="font-manrope">{(shippingOption.cost / 100).toFixed(2)} NOK</span>
           </div>
         </div>
 
-        <div className="flex justify-between text-lg font-oswald font-bold">
+        <div className="flex justify-between text-lg font-manrope font-bold">
           <span>Total:</span>
           <span className="text-norwegian-gold font-manrope">{(totalSum / 100).toFixed(2)} NOK</span>
         </div>
 
         <div className="mt-4 pt-4 border-t border-border-cool">
-          <p className="text-sm font-oswald font-bold text-charcoal-text mb-2">Leveringsalternativ:</p>
+          <p className="text-sm font-manrope font-bold text-charcoal-text mb-2">Leveringsalternativ:</p>
           <p className="text-sm text-ice-medium font-manrope">{shippingOption.name}</p>
         </div>
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-border-cool">
-        <h3 className="font-oswald text-ice-deep mb-4">Betalingsmetode</h3>
+        <h3 className="font-manrope text-ice-deep mb-4">Betalingsmetode</h3>
         <form onSubmit={handleSubmit} className="space-y-6">
           <PaymentElement />
           <button
@@ -249,11 +249,11 @@ useEffect(() => {
               animate={{ rotateY: 0, scale: 1, rotateX: 0 }}
               exit={{ rotateY: 180, rotateX: 5, scale: 0.97, opacity: 0.95 }}
               transition={cardTransition}
-              className="grid md:grid-cols-2 w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-border-cool"
+              className="grid lg:grid-cols-2 w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-border-cool"
               style={{ backfaceVisibility: "hidden", transformOrigin: "center" }}
             >
               <div className="p-8 md:p-10">
-                <h1 className="text-3xl font-playfair text-ice-deep mb-8 text-center tracking-wide">
+                <h1 className="text-3xl font-manrope font-bold text-ice-deep mb-8 text-center tracking-wide">
                   Handlekurv
                 </h1>
 
@@ -262,7 +262,7 @@ useEffect(() => {
                   ) : (
                    <div key={`items-${currentItems.length}-${currentItems.map(i => i.id).join('-')}`} className="space-y-8">
                      {currentItems.map((item) => (
-                       <div key={item.id} className="flex items-center justify-between border-b border-border-cool pb-5">
+                        <div key={item.id} className="flex flex-wrap items-center gap-y-4 justify-between border-b border-border-cool pb-5">
                          <div className="flex items-center space-x-4">
                            <div className="relative w-20 h-20">
                              <Image
@@ -272,7 +272,7 @@ useEffect(() => {
                                className="object-cover rounded-xl border border-border-cool shadow-sm"
                              />
                            </div>
-                            <div>
+                             <div className="min-w-0">
                               <p className="font-manrope font-bold text-ice-deep text-lg">{item.name}</p>
                               {item.artist && (
                                 <p className="text-charcoal-text text-sm font-manrope italic">av {item.artist}</p>
@@ -312,27 +312,27 @@ useEffect(() => {
 
               <div className="bg-ice-deep text-glacial-white p-8 md:p-10 flex flex-col justify-between">
                 <div>
-                  <h2 className="text-2xl font-playfair mb-6">Oppsummering</h2>
+                  <h2 className="text-2xl font-manrope font-bold text-glacial-white mb-6">Oppsummering</h2>
                   
                    <div className="mb-6">
-                     <p className="text-arctic-mist mb-2 font-oswald font-bold">Frakt:</p>
+                     <p className="text-arctic-mist mb-2 font-manrope font-bold">Frakt:</p>
                      <p className="text-glacial-white text-sm font-manrope">{shippingOption.name}</p>
                      <p className="text-norwegian-gold font-bold mt-1 font-manrope">{(shippingOption.cost/100).toFixed(2)} NOK</p>
                    </div>
 
-                  <div className="flex justify-between text-lg font-oswald font-bold border-t border-border-cool pt-4">
+                  <div className="flex justify-between text-lg font-manrope font-bold border-t border-border-cool pt-4">
                      <span>Subtotal:</span>
                      <span className="text-norwegian-gold font-manrope">
                        {(subtotal / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
                      </span>
                    </div>
-                   <div className="flex justify-between text-lg font-oswald font-bold mt-2">
+                   <div className="flex justify-between text-lg font-manrope font-bold mt-2">
                      <span>Frakt:</span>
                      <span className="text-norwegian-gold font-manrope">
                        {(shippingOption.cost / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
                      </span>
                    </div>
-                   <div className="flex justify-between text-lg font-oswald font-bold mt-2 border-t border-border-cool pt-2">
+                   <div className="flex justify-between text-lg font-manrope font-bold mt-2 border-t border-border-cool pt-2">
                      <span>Total:</span>
                      <span className="text-norwegian-gold font-manrope">
                        {(totalSum / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK

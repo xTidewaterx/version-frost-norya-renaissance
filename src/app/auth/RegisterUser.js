@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Cropper from "react-easy-crop";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { app } from "../../firebase/firebaseConfig";
@@ -13,15 +13,21 @@ import OnboardingNotice from "../components/OnboardingNotice";
 const DEFAULT_AVATAR_URL =
   "https://firebasestorage.googleapis.com/v0/b/norland-a7730.appspot.com/o/profile%2FA%20rectangular%20default%20profile%20edit.png?alt=media&token=f00d3c5c-4d54-4af8-8f89-dba56cefb708";
 
-export const RegisterUser = () => {
+export const RegisterUser = ({ defaultRole }) => {
   const [authObject, setAuthObject] = useState({
     email: "",
     password: "",
     confirmPassword: "",
     fullName: "",
     phone: "",
-    role: "seller",
+    role: defaultRole || "civilian",
   });
+
+  useEffect(() => {
+    if (defaultRole) {
+      setAuthObject((prev) => ({ ...prev, role: defaultRole }));
+    }
+  }, [defaultRole]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [imageSrc, setImageSrc] = useState(null);
@@ -112,6 +118,16 @@ export const RegisterUser = () => {
  //await is what you use inside asynchronous code to pause execution until a promise (or async task) is finished, without blocking the rest of the program.
   return (
     <section className="bg-[#F0F4F8] dark:bg-[#001A4A] min-h-screen flex flex-col items-center justify-start px-4 py-10 space-y-6">
+      
+      
+      <div className="w-full max-w-md bg-white dark:bg-[#00205B] rounded-lg shadow-lg p-6 space-y-6">
+        <p className="text-sm text-center text-slate-600 dark:text-slate-200">
+          Tips: Google-innlogging fungerer også for skapere som vil publisere produkter senere.
+        </p>
+        <GoogleSignIn />
+      </div>
+      
+      
       <div className="w-full max-w-md bg-white dark:bg-[#00205B] rounded-lg shadow-lg p-6 space-y-6">
         <div className="text-center">
           {croppedImage ? (
@@ -157,30 +173,36 @@ export const RegisterUser = () => {
 
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-900 dark:text-white">Kontotype</label>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setAuthObject((prev) => ({ ...prev, role: "seller" }))}
-                className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
-                  authObject.role === "seller"
-                    ? "border-[#FFD100] bg-[#FFD100]/10 text-[#00205B] dark:text-[#FFD100]"
-                    : "border-gray-300 bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                }`}
-              >
-                Selger
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthObject((prev) => ({ ...prev, role: "civilian" }))}
-                className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
-                  authObject.role === "civilian"
-                    ? "border-[#FFD100] bg-[#FFD100]/10 text-[#00205B] dark:text-[#FFD100]"
-                    : "border-gray-300 bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                }`}
-              >
-                Kunde
-              </button>
-            </div>
+            {defaultRole ? (
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {defaultRole === 'seller' ? 'Selger' : 'Kunde'}
+              </p>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAuthObject((prev) => ({ ...prev, role: "seller" }))}
+                  className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
+                    authObject.role === "seller"
+                      ? "border-[#FFD100] bg-[#FFD100]/10 text-[#00205B] dark:text-[#FFD100]"
+                      : "border-gray-300 bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                  }`}
+                >
+                  Selger
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthObject((prev) => ({ ...prev, role: "civilian" }))}
+                  className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
+                    authObject.role === "civilian"
+                      ? "border-[#FFD100] bg-[#FFD100]/10 text-[#00205B] dark:text-[#FFD100]"
+                      : "border-gray-300 bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                  }`}
+                >
+                  Kunde
+                </button>
+              </div>
+            )}
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {authObject.role === "seller"
                 ? "Som selger kan du publisere produkter og motta betalinger via Stripe Connect."
@@ -194,12 +216,6 @@ export const RegisterUser = () => {
         </form>
       </div>
 
-      <div className="w-full max-w-md bg-white dark:bg-[#00205B] rounded-lg shadow-lg p-6 space-y-6">
-        <p className="text-sm text-center text-slate-600 dark:text-slate-200">
-          Tips: Google-innlogging fungerer også for skapere som vil publisere produkter senere.
-        </p>
-        <GoogleSignIn />
-      </div>
     </section>
   );
 };

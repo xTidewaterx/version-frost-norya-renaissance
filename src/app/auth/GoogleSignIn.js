@@ -14,7 +14,7 @@ import {
 } from "firebase/firestore";
 import { app, auth, provider } from "../../firebase/firebaseConfig";
 
-export function GoogleSignIn() {
+export function GoogleSignIn({ role }) {
   const [user, setUser] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const db = getFirestore(app);
@@ -36,7 +36,16 @@ useEffect(() => {
             email: firebaseUser.email,
             displayName: firebaseUser.displayName || "",
             photoURL: firebaseUser.photoURL || "",
+            role: role || "civilian",
             createdAt: new Date(),
+          });
+          const publicUserRef2 = doc(db, "publicUsers", firebaseUser.uid);
+          await setDoc(publicUserRef2, {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName || "",
+            photoURL: firebaseUser.photoURL || "",
+            role: role || "civilian",
           });
           console.log("📦 Firestore profile created for:", firebaseUser.email);
         }
@@ -67,15 +76,25 @@ useEffect(() => {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          uid: signedInUser.uid,
-          email: signedInUser.email,
-          displayName: signedInUser.displayName || "",
-          photoURL: signedInUser.photoURL || "",
-          createdAt: new Date(),
-        });
-        console.log("📦 Firestore profile created for:", signedInUser.email);
-      }
+          const userRole = role || "civilian";
+          await setDoc(userRef, {
+            uid: signedInUser.uid,
+            email: signedInUser.email,
+            displayName: signedInUser.displayName || "",
+            photoURL: signedInUser.photoURL || "",
+            role: userRole,
+            createdAt: new Date(),
+          });
+          const publicUserRef = doc(db, "publicUsers", signedInUser.uid);
+          await setDoc(publicUserRef, {
+            uid: signedInUser.uid,
+            email: signedInUser.email,
+            displayName: signedInUser.displayName || "",
+            photoURL: signedInUser.photoURL || "",
+            role: userRole,
+          });
+          console.log("📦 Firestore profile created for:", signedInUser.email);
+        }
 
       setUser(signedInUser);
       setErrorMessage("");

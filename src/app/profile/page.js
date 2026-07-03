@@ -8,6 +8,7 @@ import { getCroppedImg } from '../utils/cropImage';
 import { useAuth } from '../auth/authContext';
 import { RegisterUser } from '../auth/RegisterUser';
 import { SignInUser } from '../auth/SignIn';
+import { GoogleSignIn } from '../auth/GoogleSignIn';
 import PostProduct from '../post/PostProduct';
 import { getFirestore, doc, collection, getDocs, getDoc } from 'firebase/firestore';
 import { Space_Grotesk, Roboto } from 'next/font/google';
@@ -85,6 +86,8 @@ const ImageCropUploader = () => {
   const [showHalo, setShowHalo] = useState(false);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [profileThemeId, setProfileThemeId] = useState('fjord');
+  const [authFlow, setAuthFlow] = useState('select');
+  const [selectedRole, setSelectedRole] = useState('kunde');
 
   const [creatorProducts, setCreatorProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -472,36 +475,106 @@ return (
 
       {/* Logged-out user */}
       {!user && (
-        <section className="rounded-[2rem] border border-slate-200/70 bg-white/80 backdrop-blur-xl p-8 shadow-sm sm:p-10">
-          <div className="mx-auto max-w-2xl">
-            <div className="mb-8 flex items-center gap-3">
-              <span className="h-3 w-3 rounded-full bg-rose-400" />
-              <span className="text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-                Profiltilgang
-              </span>
-            </div>
+        <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">
+          <div className="p-8 sm:p-10">
+            <div className="mx-auto max-w-xl">
+              <div className="mb-6 flex items-center gap-3">
+                <span className="h-3 w-3 rounded-full bg-rose-400" />
+                <span className="text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
+                  Profiltilgang
+                </span>
+              </div>
 
-            <h1 className={`${roboto.className} text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl`}>
-              Min Profil
-            </h1>
+              <h1 className={`${roboto.className} text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl`}>
+                Min Profil
+              </h1>
 
-            <p className="mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">
-              Logg inn eller opprett bruker for å administrere profil, produkter og favoritter.
-            </p>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-base">
+                Velg hvordan du vil fortsette.
+              </p>
 
-            <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
-              <OnboardingNotice
-                storageKey="norya_profile_access_intro_seen"
-                title="Ny bruker?"
-                buttonLabel="Ok"
-              >
-                Start med å registrere deg eller logge inn. Etterpå får du tilgang til profil, favoritter og verktøy for å publisere produkter.
-              </OnboardingNotice>
-            </div>
+              <div className="mt-6">
+                <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500">
+                  Kontotype
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('kunde')}
+                    className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
+                      selectedRole === 'kunde'
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                    }`}
+                  >
+                    Kunde
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('selger')}
+                    className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
+                      selectedRole === 'selger'
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                    }`}
+                  >
+                    Selger
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {selectedRole === 'selger'
+                    ? 'Som selger kan du publisere produkter og motta betalinger via Stripe Connect.'
+                    : 'Som kunde kan du kjøpe produkter og følge skapere.'}
+                </p>
+              </div>
 
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
-              <SignInUser />
-              <RegisterUser />
+              <div className="mt-8 flex flex-col gap-3">
+                <button
+                  onClick={() => setAuthFlow('login')}
+                  className="rounded-full border border-slate-300 bg-white/80 px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-white"
+                >
+                  Logg inn
+                </button>
+                <button
+                  onClick={() => setAuthFlow('register')}
+                  className="rounded-full border border-slate-300 bg-white/80 px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-white"
+                >
+                  Opprett konto
+                </button>
+                <button
+                  onClick={() => setAuthFlow('google')}
+                  className="rounded-full border border-slate-300 bg-white/80 px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-white"
+                >
+                  Fortsett med Google
+                </button>
+              </div>
+
+              {authFlow !== 'select' && (
+                <button
+                  onClick={() => setAuthFlow('select')}
+                  className="mt-6 text-left text-xs font-medium text-slate-500 underline underline-offset-2"
+                >
+                  ← Velg noe annet
+                </button>
+              )}
+
+              {authFlow === 'login' && (
+                <div className="mt-6">
+                  <SignInUser />
+                </div>
+              )}
+
+              {authFlow === 'register' && (
+                <div className="mt-6">
+                  <RegisterUser defaultRole={selectedRole} />
+                </div>
+              )}
+
+              {authFlow === 'google' && (
+                <div className="mt-6">
+                  <GoogleSignIn role={selectedRole} />
+                </div>
+              )}
             </div>
           </div>
         </section>

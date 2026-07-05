@@ -10,7 +10,7 @@ import { RegisterUser } from '../auth/RegisterUser';
 import { SignInUser } from '../auth/SignIn';
 import { GoogleSignIn } from '../auth/GoogleSignIn';
 import PostProduct from '../post/PostProduct';
-import { getFirestore, doc, collection, getDocs, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, collection, getDocs, getDoc, updateDoc } from 'firebase/firestore';
 import { Space_Grotesk, Roboto } from 'next/font/google';
 import OnboardingNotice from '../components/OnboardingNotice';
 import PaymentInfo from '../components/PaymentInfo';
@@ -30,7 +30,7 @@ const PROFILE_THEMES = [
   { id: 'midnatt', name: 'Midnatt', accent: '#263248', surface: '#eef1f7', border: '#c7cfdf' },
   { id: 'skog', name: 'Skog', accent: '#315044', surface: '#edf5f1', border: '#c7ddd3' },
   { id: 'rav', name: 'Rav', accent: '#7a5322', surface: '#f8f1e8', border: '#e5d4be' },
-  { id: 'plomme', name: 'Plomme', accent: '#4a355f', surface: '#f2eef8', border: '#d7cde9' },
+  { id: 'plomme', name: 'Plombe', accent: '#4a355f', surface: '#f2eef8', border: '#d7cde9' },
   { id: 'stein', name: 'Stein', accent: '#4b5563', surface: '#f1f3f5', border: '#d5dbe2' },
   { id: 'kyst', name: 'Kyst', accent: '#005f73', surface: '#eaf5f7', border: '#bdd9de' },
   { id: 'vin', name: 'Vinrod', accent: '#6f2f3b', surface: '#f8ecef', border: '#e6c5cc' },
@@ -47,10 +47,6 @@ const hexToRgba = (hex, alpha) => {
   const b = value & 255;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
-
-const ColorDot = ({ color, className = '' }) => (
-  <span className={`inline-block h-3 w-3 rounded-full ${className}`} style={{ backgroundColor: color }} />
-);
 
 const ProductCard = ({ product, favorite = false }) => (
   <a href={`/products/${product.id}`} className="group block">
@@ -123,7 +119,6 @@ const ImageCropUploader = () => {
     if (stripeStatus === 'success' && user) {
       console.log('✅ STRIPE CONNECT ONBOARDING RETURNED - SUCCESS');
       console.log('🔄 Checking account status...');
-      // The PaymentInfo component will auto-refresh status on mount
     }
     if (stripeStatus === 'refresh' && user) {
       console.log('🔄 STRIPE CONNECT ONBOARDING REFRESH - account needs re-onboarding');
@@ -157,7 +152,7 @@ const ImageCropUploader = () => {
     try {
       if (imageSrc && croppedAreaPixels) {
         const blob = await getCroppedImg(imageSrc, croppedAreaPixels);
-        const storageRef = ref(storage, `profilePics/${user.uid}.jpg`);
+        const storageRef = ref(storage, `profilePics/${user.uid}/profile.jpg`);
         await uploadBytes(storageRef, blob);
         downloadURL = await getDownloadURL(storageRef);
       }
@@ -541,12 +536,7 @@ return (
                 >
                   Opprett konto
                 </button>
-                <button
-                  onClick={() => setAuthFlow('google')}
-                  className="rounded-full border border-slate-300 bg-white/80 px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-white"
-                >
-                  Fortsett med Google
-                </button>
+                <GoogleSignIn role={selectedRole} />
               </div>
 
               {authFlow !== 'select' && (
@@ -569,17 +559,10 @@ return (
                   <RegisterUser defaultRole={selectedRole} />
                 </div>
               )}
-
-              {authFlow === 'google' && (
-                <div className="mt-6">
-                  <GoogleSignIn role={selectedRole} />
-                </div>
-              )}
             </div>
           </div>
         </section>
       )}
-  
 
         {user && (
           <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">

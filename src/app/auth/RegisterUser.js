@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Cropper from "react-easy-crop";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { app } from "../../firebase/firebaseConfig";
+import { auth } from "../../firebase/firebaseConfig";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { getCroppedImg } from "../utils/cropImage";
-import { v4 as uuidv4 } from "uuid";
 import "../globals.css";
 import { GoogleSignIn } from "./GoogleSignIn";
 import OnboardingNotice from "../components/OnboardingNotice";
@@ -30,6 +32,7 @@ export const RegisterUser = ({ defaultRole }) => {
   }, [defaultRole]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const router = useRouter();
   const [imageSrc, setImageSrc] = useState(null);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [croppedImage, setCroppedImage] = useState(null);
@@ -81,21 +84,13 @@ export const RegisterUser = ({ defaultRole }) => {
       return;
     }
 
-    let photoURL = DEFAULT_AVATAR_URL;
+    const pendingProfilePic = croppedImage;
 
     try {
-      if (croppedImage) {
-        const blob = await (await fetch(croppedImage)).blob();
-        const storage = getStorage(app);
-        const imageRef = ref(storage, `profilePics/${uuidv4()}.jpeg`);
-        await uploadBytes(imageRef, blob);
-        photoURL = await getDownloadURL(imageRef);
-      }
-
       const res = await fetch("/api/registerUser", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, fullName, phone, photoURL, role }),
+        body: JSON.stringify({ email, password, fullName, phone, photoURL: DEFAULT_AVATAR_URL, role }),
       });
 
       const data = await res.json();
@@ -103,6 +98,40 @@ export const RegisterUser = ({ defaultRole }) => {
       if (data.success) {
         setSuccess(`Account created! Your user tag is ${data.userTag}`);
         setError("");
+
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+
+          if (pendingProfilePic && data.uid) {
+            try {
+              const blob = await (await fetch(pendingProfilePic)).blob();
+              const storage = getStorage(app);
+              const imageRef = ref(storage, `profilePics/${data.uid}/profile.jpg`);
+              await uploadBytes(imageRef, blob);
+              const downloadURL = await getDownloadURL(imageRef);
+
+              const currentUser = auth.currentUser;
+              if (currentUser) {
+                await fetch("/api/updateProfile", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${await currentUser.getIdToken()}`,
+                  },
+                  body: JSON.stringify({ photoURL: downloadURL }),
+                });
+              }
+            } catch (uploadErr) {
+              console.warn("Profile pic upload after login failed:", uploadErr);
+            }
+          }
+        } catch (err) {
+          console.error("Auto-login failed:", err);
+        }
+
+        setTimeout(() => {
+          router.push("/");
+        }, 2000);
       } else {
         setError(data.error || "Failed to create account");
         setSuccess("");
@@ -120,13 +149,7 @@ export const RegisterUser = ({ defaultRole }) => {
     <section className="bg-[#F0F4F8] dark:bg-[#001A4A] min-h-screen flex flex-col items-center justify-start px-4 py-10 space-y-6">
       
       
-      <div className="w-full max-w-md bg-white dark:bg-[#00205B] rounded-lg shadow-lg p-6 space-y-6">
-        <p className="text-sm text-center text-slate-600 dark:text-slate-200">
-          Tips: Google-innlogging fungerer også for skapere som vil publisere produkter senere.
-        </p>
-        <GoogleSignIn />
-      </div>
-      
+  
       
       <div className="w-full max-w-md bg-white dark:bg-[#00205B] rounded-lg shadow-lg p-6 space-y-6">
         <div className="text-center">
@@ -147,7 +170,16 @@ export const RegisterUser = ({ defaultRole }) => {
         </OnboardingNotice>
 
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-        {success && <p className="text-green-500 text-sm text-center">{success}</p>}
+        {success && (
+          <div className="text-center animate-fade-in">
+            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-green-100 flex items-center justify-center animate-scale-in">
+              <svg className="w-10 h-10 text-green-500 animate-check-draw" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-green-500 text-sm font-medium">{success}</p>
+          </div>
+        )}
 
         <form className="space-y-4">
           <div className="flex flex-col items-center">
@@ -216,6 +248,14 @@ export const RegisterUser = ({ defaultRole }) => {
         </form>
       </div>
 
+
+    <div className="w-full max-w-md bg-white dark:bg-[#00205B] rounded-lg shadow-lg p-6 space-y-6">
+        <p className="text-sm text-center text-slate-600 dark:text-slate-200">
+          Tips: Google-innlogging fungerer også for skapere som vil publisere produkter senere.
+        </p>
+        <GoogleSignIn />
+      </div>
+      
     </section>
   );
 };

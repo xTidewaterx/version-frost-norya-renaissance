@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { auth, db } from '../../../firebase/firebaseConfig';
+
+
 import {
   collection,
   addDoc,
@@ -232,10 +234,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function fetchFavorites() {
-      if (!uid) return;
+      if (!currentUser?.uid) {
+        setLoadingFavorites(false);
+        return;
+      }
       setLoadingFavorites(true);
       try {
-        const userDocRef = doc(db, 'users', uid);
+        const userDocRef = doc(db, 'users', currentUser.uid);
         const favoritesRef = collection(userDocRef, 'favourites');
         const snapshot = await getDocs(favoritesRef);
         const favoriteIds = snapshot.docs.map((doc) => doc.data().productId).filter(Boolean);
@@ -262,7 +267,7 @@ export default function ProfilePage() {
     }
 
     fetchFavorites();
-  }, [uid]);
+  }, [currentUser]);
 
   useEffect(() => {
     if (isChatVisible && chatId && chatSectionRef.current) {
@@ -562,6 +567,49 @@ export default function ProfilePage() {
           </div>
         </section>
 
+
+
+                <section className="rounded-[2rem] border border-[#e8ede6] bg-[#f6faf5] p-6 shadow-sm sm:p-10">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Produkter fra {displayName}</h2>
+            <span className="rounded-full border border-slate-300 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600">
+              {productCount}
+            </span>
+          </div>
+
+{loadingCreatorProducts ? (
+             <p className="text-slate-600">Laster produkter...</p>
+           ) : creatorProducts.length === 0 ? (
+             <p className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-4 text-slate-600">
+               Denne skaperen har ingen produkter ute ennå.
+             </p>
+           ) : (
+             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+               {creatorProducts.map((product) => (
+                 <a
+                   key={product.id}
+                   href={`/products/${product.id}`}
+                   className="group overflow-hidden rounded-2xl border border-white bg-white shadow-[0_6px_16px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]"
+                 >
+                   <div className="overflow-hidden rounded-xl bg-slate-100">
+                     <img
+                       src={product.images?.[0] || '/placeholder.jpg'}
+                       alt={product.name || 'Produkt'}
+                       className="h-full w-full object-fill transition duration-500 group-hover:scale-[1.03]"
+                     />
+                   </div>
+                   <div className="pt-3 px-3 pb-4">
+                     <div className="truncate text-base font-semibold text-slate-900">{product.name || 'Ukjent produkt'}</div>
+                     <div className="mt-1 text-sm text-slate-600">
+                       {product.currency?.toUpperCase() || 'NOK'} {product.price?.toLocaleString() ?? 0}
+                     </div>
+                   </div>
+                 </a>
+               ))}
+             </div>
+           )}
+         </section>
+
         <section className="rounded-[2rem] border border-slate-200 bg-white/90 p-8 shadow-sm sm:p-10">
           <div className="mb-6 flex items-center justify-between gap-3">
             <h2 className={`${cormorant.className} text-3xl font-semibold text-slate-900 sm:text-4xl`}></h2>
@@ -758,85 +806,7 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="rounded-[2rem] border border-[#f1dde2] bg-[#fff5f7] p-6 shadow-sm sm:p-10">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Favoritter</h2>
-            <span className="rounded-full border border-slate-300 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600">
-              {favoritesCount}
-            </span>
-          </div>
 
-          {loadingFavorites ? (
-            <p className="text-slate-600">Laster favoritter...</p>
-          ) : favoriteProducts.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-4 text-slate-600">
-              Ingen favoritter tilgjengelig.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {favoriteProducts.map((product) => (
-                <a
-                  key={product.id}
-                  href={`/products/${product.id}`}
-                  className="group overflow-hidden rounded-2xl border border-white bg-white p-3 shadow-[0_6px_16px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]"
-                >
-                  <div className="overflow-hidden rounded-xl bg-slate-100">
-                    <img
-                      src={product.images?.[0] || '/placeholder.jpg'}
-                      alt={product.name}
-                      className="h-44 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                    />
-                  </div>
-                  <div className="pt-3">
-                    <div className="truncate text-base font-semibold text-slate-900">{product.name || 'Ukjent produkt'}</div>
-                    <div className="mt-1 text-sm text-slate-600">
-                      {product.currency?.toUpperCase() || 'NOK'} {product.price ?? 0}
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-[2rem] border border-[#e8ede6] bg-[#f6faf5] p-6 shadow-sm sm:p-10">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Produkter fra {displayName}</h2>
-            <span className="rounded-full border border-slate-300 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600">
-              {productCount}
-            </span>
-          </div>
-
-          {loadingCreatorProducts ? (
-            <p className="text-slate-600">Laster produkter...</p>
-          ) : creatorProducts.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-4 text-slate-600">
-              Denne skaperen har ingen produkter ute ennå.
-            </p>
-          ) : (
-            <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2">
-              {creatorProducts.map((product) => (
-                <a
-                  key={product.id}
-                  href={`/products/${product.id}`}
-                  className="group w-64 shrink-0 snap-start overflow-hidden rounded-2xl border border-white bg-white p-3 shadow-[0_6px_16px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]"
-                >
-                  <div className="overflow-hidden rounded-xl bg-slate-100">
-                    <img
-                      src={product.images?.[0] || '/placeholder.jpg'}
-                      alt={product.name || 'Produkt'}
-                      className="h-40 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                    />
-                  </div>
-                  <div className="pt-3">
-                    <div className="truncate text-base font-semibold text-slate-900">{product.name || 'Ukjent produkt'}</div>
-                    <div className="mt-1 text-sm text-slate-600">NOK {product.price ?? 0}</div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </section>
 
         {isOwnProfile && (
           <section className="rounded-[2rem] border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-10">
@@ -854,42 +824,23 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Login Modal */}
+{/* Login Modal */}
       {showLogin && !currentUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
           <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white/95 p-8 shadow-2xl sm:p-10">
             <h2 className="text-center text-2xl font-semibold text-slate-900">Logg inn for å fortsette</h2>
             <p className="mt-3 text-center text-sm text-slate-600">Du må være logget inn for å sende meldinger.</p>
 
-            <form onSubmit={handleSignIn} className="mt-6">
-              <input
-                type="email"
-                placeholder="E-post"
-                className="mb-3 w-full rounded-xl border border-slate-300 bg-white/90 p-3 text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <input
-                type="password"
-                placeholder="Passord"
-                className="mb-3 w-full rounded-xl border border-slate-300 bg-white/90 p-3 text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                type="submit"
-                className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition hover:brightness-95 active:brightness-90"
-                style={{ backgroundColor: activeTheme.accent }}
-              >
-                Logg inn
-              </button>
-            </form>
-
             <button
               onClick={handleGoogleSignIn}
-              className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
             >
-              Fortsett med Google
+              <img
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google logo"
+                className="h-5 w-5"
+              />
+              Logg inn med Google
             </button>
 
             <button

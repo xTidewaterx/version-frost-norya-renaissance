@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+  import { useEffect, useState } from 'react';
 import { saveFavourite } from '../../../lib/saveFavourite';
 import Image from 'next/image';
 import { useAuth } from '../../../auth/authContext';
@@ -38,7 +38,7 @@ export default function GetProducts() {
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const [isSm, setIsSm] = useState(false);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -63,6 +63,34 @@ export default function GetProducts() {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)');
+    const update = () => setIsSm(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  const computeBalancedColumns = (total) => {
+    if (total <= 2) return 2;
+    let best = Math.ceil(Math.sqrt(total));
+    let bestScore = Infinity;
+    for (let c = best; c >= 2; c--) {
+      const firstRow = Math.min(c, total);
+      const rows = Math.ceil(total / c);
+      const lastRow = total - (rows - 1) * c;
+      const score = Math.abs(firstRow - lastRow);
+      if (score < bestScore || (score === bestScore && c > best)) {
+        bestScore = score;
+        best = c;
+        if (bestScore === 0) break;
+      }
+    }
+    return best;
+  };
+
+  const cols = isSm ? computeBalancedColumns(products.length) : 2;
+
   const placeholderCards = Array.from({ length: 4 }).map((_, idx) => (
     <div
       key={idx}
@@ -83,8 +111,14 @@ export default function GetProducts() {
           Produkter
         </div>
       </div>
-
-      <div className="grid justify-center grid-cols-2 sm:grid-cols-[repeat(auto-fit,minmax(200px,0.4fr))] gap-x-2 sm:gap-x-6 gap-y-10 px-4">
+      <div
+        className="grid justify-center grid-cols-2 gap-x-2 sm:gap-x-6 gap-y-10 px-4"
+        style={{
+          gridTemplateColumns: isSm
+            ? `repeat(${cols}, minmax(0, 1fr))`
+            : 'repeat(2, minmax(0, 1fr))'
+        }}
+      >
         {loading
           ? placeholderCards
           : products.map((product, index) => (
@@ -137,6 +171,20 @@ export default function GetProducts() {
                 </div>
               </Link>
             ))}
+          {/* pad last row with invisible fillers so top and bottom rows have same amount */}
+          {!loading && (
+            (() => {
+              const remainder = products.length % cols;
+              const padCount = remainder === 0 ? 0 : cols - remainder;
+              return Array.from({ length: padCount }).map((_, i) => (
+                <div
+                  key={`pad-${i}`}
+                  aria-hidden="true"
+                  className="opacity-0 pointer-events-none bg-transparent rounded-xl flex flex-col aspect-[9/16]"
+                />
+              ));
+            })()
+          )}
       </div>
     </div>
   );

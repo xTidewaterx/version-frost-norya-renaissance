@@ -573,7 +573,6 @@ return (
                   <div className="mb-5 flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full bg-sky-400" />
                     <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-                      <span className="h-2 w-2 rounded-full bg-sky-400" />
                       Produkter
                       <span className="rounded-full border border-slate-300 bg-white/80 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                         {creatorProducts.length}
@@ -599,7 +598,6 @@ return (
                   <div className="mb-5 flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full bg-rose-400" />
                     <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
-                      <span className="h-2 w-2 rounded-full bg-rose-400" />
                       Favoritter
                       <span className="rounded-full border border-slate-300 bg-white/80 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                         {favoriteProducts.length}

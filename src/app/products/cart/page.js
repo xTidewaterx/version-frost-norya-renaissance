@@ -360,27 +360,22 @@ useEffect(() => {
            )}
 
 {checkoutStep === 2 && (
-            <motion.div
+            <div
               key="processing"
-              initial={{ rotateY: -90, rotateX: -5, scale: 0.97, opacity: 0.95 }}
-              animate={{ rotateY: 0, rotateX: 0, scale: 1, opacity: 1 }}
-              exit={{ rotateY: 180, rotateX: 5, scale: 0.97, opacity: 0.95 }}
-              transition={cardTransition}
               className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-10 flex flex-col items-center justify-center border border-border-cool"
             >
               <p className="text-charcoal-text text-lg font-manrope font-bold mb-4">Behandler frakt og betaling...</p>
-            </motion.div>
+            </div>
           )}
 
           {checkoutStep === 3 && clientSecret && (
             <motion.div
               key="payment"
-              initial={{ rotateY: -180, rotateX: -5, scale: 0.97, opacity: 0.95 }}
-              animate={{ rotateY: 0, rotateX: 0, scale: 1, opacity: 1 }}
-              exit={{ rotateY: 180, rotateX: 5, scale: 0.97, opacity: 0.95 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ rotateY: 90, rotateX: 5, scale: 0.97, opacity: 0.95 }}
               transition={cardTransition}
               className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl p-8 md:p-10 border border-border-cool"
-              style={{ backfaceVisibility: "hidden", transformOrigin: "center" }}
             >
               <Elements stripe={stripePromise} options={{ clientSecret, locale: 'nb' }}>
                 <CheckoutForm 

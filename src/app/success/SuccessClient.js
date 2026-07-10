@@ -3,14 +3,25 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import Deer from "../components/Deer";
 
 export default function SuccessClient() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [status, setStatus] = useState("verifying");
   const [info, setInfo] = useState(null);
+
+  useEffect(() => {
+    if (status === "succeeded") {
+      const timer = setTimeout(() => {
+        router.push("/");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [status, router]);
 
   useEffect(() => {
     const payment_intent = searchParams.get("payment_intent");

@@ -16,6 +16,7 @@ export default function HenteStedPage() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState(null);
   const [searched, setSearched] = useState(false);
+  const [addressSelected, setAddressSelected] = useState(false);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const timerRef = useRef(null);
@@ -66,6 +67,7 @@ export default function HenteStedPage() {
   function handleInputChange(e) {
     const value = e.target.value;
     setQuery(value);
+    setAddressSelected(false);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => fetchSuggestions(value), 300);
   }
@@ -73,6 +75,7 @@ export default function HenteStedPage() {
   function handleSelectSuggestion(feature) {
     setQuery(feature.place_name || feature.text || "");
     setShowSuggestions(false);
+    setAddressSelected(true);
 
     const ctx = feature.context || [];
     const getText = (prefix) => {
@@ -180,41 +183,43 @@ export default function HenteStedPage() {
               </div>
             </div>
 
-            <div className="space-y-4 border-t border-black/10 pt-5 dark:border-white/10">
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label htmlFor="postalCode" className="block text-sm font-medium text-black dark:text-zinc-50">Postnummer</label>
-                  <input
-                    id="postalCode"
-                    type="text"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                    placeholder="0000"
-                    className="w-full rounded-xl border border-black/10 bg-zinc-100 px-4 py-3 text-black dark:border-white/10 dark:bg-white/5 dark:text-white"
-                  />
+            {addressSelected && (
+              <div className="space-y-4 border-t border-black/10 pt-5 dark:border-white/10">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="postalCode" className="block text-sm font-medium text-black dark:text-zinc-50">Postnummer</label>
+                    <input
+                      id="postalCode"
+                      type="text"
+                      value={postalCode}
+                      onChange={(e) => setPostalCode(e.target.value)}
+                      placeholder="0000"
+                      className="w-full rounded-xl border border-black/10 bg-zinc-100 px-4 py-3 text-black dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="city" className="block text-sm font-medium text-black dark:text-zinc-50">Sted</label>
+                    <input
+                      id="city"
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="f.eks. Oslo"
+                      className="w-full rounded-xl border border-black/10 bg-zinc-100 px-4 py-3 text-black dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="city" className="block text-sm font-medium text-black dark:text-zinc-50">Sted</label>
-                  <input
-                    id="city"
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="f.eks. Oslo"
-                    className="w-full rounded-xl border border-black/10 bg-zinc-100 px-4 py-3 text-black dark:border-white/10 dark:bg-white/5 dark:text-white"
-                  />
-                </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => fetchPickupPoints(postalCode)}
-                disabled={loading}
-                className="rounded-full bg-black px-6 py-3 text-base font-medium text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-white/80"
-              >
-                {loading ? "Søker..." : "Finn hentested"}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => fetchPickupPoints(postalCode)}
+                  disabled={loading}
+                  className="rounded-full bg-black px-6 py-3 text-base font-medium text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-white/80"
+                >
+                  {loading ? "Søker..." : "Finn hentested"}
+                </button>
+              </div>
+            )}
 
             {error && (
               <div className="mt-6 w-full rounded-2xl border border-red-300 bg-red-50 p-6 text-left dark:border-red-800 dark:bg-red-900/20">

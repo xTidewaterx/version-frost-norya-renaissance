@@ -591,11 +591,11 @@ export default function ProfilePage() {
                    href={`/products/${product.id}`}
                    className="group overflow-hidden rounded-2xl border border-white bg-white shadow-[0_6px_16px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]"
                  >
-                   <div className="overflow-hidden rounded-xl bg-slate-100">
+                   <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-slate-100">
                      <img
                        src={product.images?.[0] || '/placeholder.jpg'}
                        alt={product.name || 'Produkt'}
-                       className="h-full w-full object-fill transition duration-500 group-hover:scale-[1.03]"
+                       className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                      />
                    </div>
                    <div className="pt-3 px-3 pb-4">

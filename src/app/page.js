@@ -23,22 +23,22 @@ export default function Home() {
 <div className="relative h-full flex flex-col justify-center items-center text-center px-6 md:px-12 pt-20">
              
              
-              <h2 className="font-merriweather text-8xl text-white mb-8">NORYA</h2>
-  <p className="font-sans text-norwegian-gold text-sm md:text-base tracking-[0.3em] uppercase mb-8 animate-fade-in-up">
+              <h1 className="font-merriweather text-8xl text-white mb-6">NORYA</h1>
+  <p className="font-sans text-norwegian-gold text-sm md:text-base tracking-[0.3em] uppercase mb-10 animate-fade-in-up">
                 Håndlaget i Norge
               </p>
               <div className="animate-fade-in-up animation-delay-300 text-white">
                 <a
-                  href="#craft"
-                  className="inline-block border border-norwegian-gold text-white px-10 py-3 text-sm tracking-widest uppercase hover:bg-norwegian-gold hover:text-[#1a1a1a] transition-all duration-500"
+                  href="#products"
+                  className="inline-block border border-norwegian-gold text-white px-10 py-3 text-sm tracking-widest uppercase hover:bg-norwegian-gold hover:text-white transition-all duration-500"
                 >
-                  Oppdag håndverket 
+                  Oppdag kolleksjonene
                 </a>
               </div>
             </div>
 
 {/* Trust points - Trygg handel centered with horizontal yellow lines */}
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center text-glacial-white text-sm md:text-base whitespace-nowrap">
+            <div className="relative mt-6 md:mt-0 md:absolute md:bottom-16 md:left-1/2 md:-translate-x-1/2 flex items-center text-glacial-white text-sm md:text-base whitespace-nowrap">
               <span className="font-sans uppercase tracking-wider hidden md:inline-block">Kuratert kvalitet</span>
               <span className="hidden md:block w-px h-6 bg-norwegian-gold mx-2"></span>
               <span className="font-sans uppercase tracking-wider relative md:whitespace-nowrap">
@@ -65,11 +65,14 @@ export default function Home() {
         </section>
 
  {/* Manifesto Section */}
-<section className="px-6 md:px-16 bg-[#faf8f5] py-6">
+<section className="px-6 md:px-16 bg-[#faf8f5] py-16 md:py-20">
   <div className="max-w-7xl mx-auto text-center">
     <p className="font-sans text-4xl sm:text-6xl md:text-8xl lg:text-9xl text-[#1a1a1a] leading-tight font-light">
       NORSK{" "}
       <span className="font-bold text-[#1e3a5f]">KVALITET FRA NORDMENN</span>.
+    </p>
+    <p className="mt-8 max-w-2xl mx-auto text-lg md:text-xl text-[#555] font-light">
+      Hvert produkt forteller en historie. Hver detalj er en beslutning.
     </p>
   </div>
 </section>
@@ -79,10 +82,13 @@ export default function Home() {
 
 
         
-{/* Philosophy Section */}
+       {/* Philosophy Section */}
         <section className="py-32 bg-[#1e3a5f] text-[#f5f0e1]">
           <div className="max-w-6xl mx-auto px-6 md:px-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
+           <div className="text-center mb-16">
+             <h2 className="font-sans text-sm uppercase tracking-[0.3em] text-norwegian-gold mb-4">Vår filosofi</h2>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
               <div>
 <div className="text-5xl font-serif text-norwegian-gold mb-6 font-black">
                      I
@@ -112,7 +118,7 @@ export default function Home() {
                      III
                   </div>
                  <h3 className="font-sans text-xl uppercase tracking-wider mb-4">
-                   Utdøvelighet
+                   Tidløshet
                  </h3>
                  <p className="font-sans italic text-[#f5f0e1]/80">
                    Vi skaper pieces ment å overleve trender, å bli arvestykker gått gjennom generasjoner.
@@ -122,7 +128,18 @@ export default function Home() {
           </div>
         </section>
 
-        <GetProducts variant="home" />
+        {/* Products Section with Header */}
+        <section id="products" className="px-6 md:px-12 py-16 md:py-20 bg-white">
+          <div className="max-w-7xl mx-auto mb-12">
+            <h2 className="text-3xl md:text-5xl font-light text-[#1a1a1a] mb-4">
+              Utvalgte kolleksjoner
+            </h2>
+            <p className="text-lg text-[#555]">
+              Håndplukket fra nordnorske skapere. Limiterte opplag, tidsløs design.
+            </p>
+          </div>
+          <GetProducts variant="home" />
+        </section>
       </main>
     </AuthProvider>
   );

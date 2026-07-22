@@ -54,7 +54,7 @@ export async function POST(req) {
     // Optional: Update price if provided
     let newPriceData = null;
     if (price) {
-      const parsedPrice = Math.round(Number(price)); // Ensure integer (Stripe requires cents)
+      const parsedPrice = Math.round(Number(price) * 100); // Ensure integer in øre (Stripe requires cents)
       if (isNaN(parsedPrice)) {
         return new Response(JSON.stringify({ error: "Invalid price format" }), { status: 400 });
       }

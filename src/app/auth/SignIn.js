@@ -11,7 +11,7 @@ import { app } from "../../firebase/firebaseConfig";
 import { ResetPassword } from "../../firebase/resetPassword";
 import OnboardingNotice from "../components/OnboardingNotice";
 
-export const SignInUser = () => {
+export const SignInUser = ({ defaultRole }) => {
   const [authObject, setAuthObject] = useState({
     email: "",
     password: "",
@@ -21,7 +21,6 @@ export const SignInUser = () => {
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // ✅ Auto refresh token and revalidate user session
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -67,7 +66,7 @@ export const SignInUser = () => {
         console.log("📦 Firestore profile created for:", user.email);
       }
 
-      setSuccessMessage(`Welcome back, ${user.email}`);
+      setSuccessMessage(`Velkommen tilbake, ${user.email}`);
       setErrorMessage("");
       console.log("✅ Signed in:", user.email);
     } catch (error) {
@@ -92,11 +91,10 @@ export const SignInUser = () => {
           Norya
         </a>
 
-        {/* Wider, glassy sign-in box with less horizontal padding */}
         <div className="w-full bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl dark:border sm:max-w-2xl xl:max-w-3xl p-8 md:p-10 dark:bg-gray-800/70 dark:border-gray-700 transition-all">
           <div className="space-y-6 md:space-y-8">
             <h1 className="text-2xl font-semibold leading-tight tracking-tight text-gray-900 md:text-3xl dark:text-white text-center">
-              Sign In
+              Logg inn
             </h1>
 
             <OnboardingNotice
@@ -113,7 +111,7 @@ export const SignInUser = () => {
                   htmlFor="email"
                   className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
                 >
-                  Your email
+                  E-post
                 </label>
                 <input
                   type="email"
@@ -122,7 +120,7 @@ export const SignInUser = () => {
                   value={authObject.email}
                   onChange={handleChange}
                   required
-                  placeholder="name@company.com"
+                  placeholder="navn@firma.no"
                   className="bg-gray-50 border border-gray-300 text-gray-900 text-base rounded-xl block w-full p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-400 outline-none"
                 />
               </div>
@@ -131,14 +129,14 @@ export const SignInUser = () => {
                   htmlFor="password"
                   className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
                 >
-                  Password
+                  Passord
                 </label>
                 <input
                   name="password"
                   type="password"
                   value={authObject.password}
                   onChange={handleChange}
-                  placeholder="Password"
+                  placeholder="Passord"
                   minLength={6}
                   required
                   autoComplete="new-password"
@@ -157,7 +155,7 @@ export const SignInUser = () => {
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-xl text-base px-5 py-3 text-center text-white shadow-lg transition"
               >
-                Sign In
+                Logg inn
               </button>
             </form>
 

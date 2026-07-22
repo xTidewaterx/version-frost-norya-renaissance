@@ -135,7 +135,7 @@ export async function POST(req) {
     });
 
     const priceData = await stripe.prices.create({
-      unit_amount: Math.round(Number(price)),
+      unit_amount: Math.round(Number(price) * 100),
       currency: "nok", // default to NOK for new products
       product: product.id,
     });
@@ -178,7 +178,7 @@ export async function PATCH(req) {
 
     let newPriceData = null;
     if (price) {
-      const parsedPrice = Math.round(Number(price));
+      const parsedPrice = Math.round(Number(price) * 100);
       if (isNaN(parsedPrice)) {
         return NextResponse.json(
           { error: "Invalid price format" },

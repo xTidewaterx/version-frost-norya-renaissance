@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import Image from "next/image";
+import { useAuth } from "../../auth/authContext";
+import { buyerEmailStore } from "../../utils/buyerEmailStore";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
@@ -107,6 +109,7 @@ function CheckoutForm({ onBack, shippingOption, items }) {
 
 export default function CartPage() {
   const { items, removeItem, updateItemQuantity, emptyCart, isInitialized, setItems } = useCart();
+  const { user } = useAuth();
   const [currentItems, setCurrentItems] = useState([]);
   const [isClient, setIsClient] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState(1);
@@ -119,10 +122,33 @@ export default function CartPage() {
     cost: 9900
   });
   const [processingPickupPoint, setProcessingPickupPoint] = useState(false);
+  const [buyerEmail, setBuyerEmail] = useState(() => buyerEmailStore.get() || "");
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = buyerEmailStore.get();
+      if (saved) {
+        console.log("🔑 [cart] restored buyerEmail from store:", saved);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user?.email) {
+      buyerEmailStore.set(user.email);
+      if (!buyerEmail) {
+        setBuyerEmail(user.email);
+      }
+    }
+  }, [user, buyerEmail]);
+
+  const getBuyerEmail = useCallback(() => {
+    return user?.email || buyerEmailStore.get() || "";
+  }, [user]);
 
   useEffect(() => {
     if (!isClient || syncedRef.current) return;
@@ -154,17 +180,20 @@ export default function CartPage() {
         id: item.id,
         name: item.name,
         quantity: item.quantity,
-        price: item.price, // Include price from cart
+        price: item.price,
       }));
 
       const activeShippingOption = shippingOptionToUse || shippingOption;
-      
-      console.log("📤 Sending checkout request with:", { items: lineItems, shipping: activeShippingOption });
+      const effectiveEmail = getBuyerEmail();
+
+      console.log("🧾 [checkout] auth user email:", user?.email);
+      console.log("🧾 [checkout] store email:", buyerEmailStore.get());
+      console.log("📤 [checkout] sending request | effectiveEmail:", effectiveEmail, "| items:", lineItems.length, "| shipping:", activeShippingOption.id);
 
       const res = await fetch("/api/checkout_sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: lineItems, shipping: activeShippingOption }),
+        body: JSON.stringify({ items: lineItems, shipping: activeShippingOption, email: effectiveEmail }),
       });
 
       const data = await res.json();
@@ -193,7 +222,7 @@ export default function CartPage() {
       alert("Feil ved initialisering av betaling. Prøv igjen.");
     }
     setLoadingSecret(false);
-  }, [items, shippingOption]);
+  }, [items, shippingOption, user, getBuyerEmail]);
 
 useEffect(() => {
      try {
@@ -225,6 +254,7 @@ useEffect(() => {
       alert("Handlekurven er tom");
       return;
     }
+    console.log("🛒 [cart] proceeding to shipping | buyerEmail:", buyerEmail);
     window.location.href = "/hentested";
   };
 
@@ -332,13 +362,26 @@ useEffect(() => {
                        {(shippingOption.cost / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
                      </span>
                    </div>
-                   <div className="flex justify-between text-lg font-manrope font-bold mt-2 border-t border-border-cool pt-2">
-                     <span>Total:</span>
-                     <span className="text-norwegian-gold font-manrope">
-                       {(totalSum / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
-                     </span>
-                   </div>
-                 </div>
+                    <div className="flex justify-between text-lg font-manrope font-bold mt-2 border-t border-border-cool pt-2">
+                      <span>Total:</span>
+                      <span className="text-norwegian-gold font-manrope">
+                        {(totalSum / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
+                      </span>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-border-cool">
+                      <label htmlFor="buyerEmail" className="block text-sm font-manrope font-bold text-charcoal-text mb-2">E-post for ordrebekreftelse</label>
+                      <input
+                        id="buyerEmail"
+                        type="email"
+                        value={buyerEmail}
+                        onChange={(e) => setBuyerEmail(e.target.value)}
+                        placeholder="din@epost.no"
+                        required
+                        className="w-full rounded-xl border border-black/10 bg-zinc-100 px-4 py-3 text-black dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      />
+                    </div>
+                  </div>
 
                  <div className="mt-10 space-y-4">
                    <button

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCart } from 'react-use-cart';
+import { useAuth } from '../auth/authContext';
+import { buyerEmailStore } from '../utils/buyerEmailStore';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
@@ -58,54 +60,70 @@ function CheckoutForm({ clientSecret, selectedShipping }) {
 
 export default function CheckoutPage() {
   const { items, isEmpty } = useCart();
+  const { user } = useAuth();
   const [clientSecret, setClientSecret] = useState(null);
   const [loadingSecret, setLoadingSecret] = useState(false);
-  const [selectedShipping, setSelectedShipping] = useState(SHIPPING_OPTIONS[0]); // default shipping
+  const [selectedShipping, setSelectedShipping] = useState(SHIPPING_OPTIONS[0]);
+  const [buyerEmail, setBuyerEmail] = useState(() => buyerEmailStore.get() || "");
+
+  useEffect(() => {
+    if (user?.email) {
+      buyerEmailStore.set(user.email);
+      if (!buyerEmail) {
+        setBuyerEmail(user.email);
+      }
+    }
+  }, [user, buyerEmail]);
+
+  const getBuyerEmail = () => user?.email || buyerEmailStore.get() || "";
 
   // Calculate subtotal of cart in cents
   const subtotalCents = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const totalCents = subtotalCents + selectedShipping.price * 100; // shipping in cents
+  const totalCents = subtotalCents + selectedShipping.price * 100;
 
-useEffect(() => {
-  if (isEmpty) return;
+  useEffect(() => {
+    if (isEmpty) return;
 
-  const fetchClientSecret = async () => {
-    setLoadingSecret(true);
-    try {
-      // Send only product references; server calculates trusted prices.
-      const lineItems = items.map(item => ({
-        id: item.id,
-        quantity: item.quantity,
-        name: item.name,
-      }));
+    const fetchClientSecret = async () => {
+      setLoadingSecret(true);
+      try {
+        const lineItems = items.map(item => ({
+          id: item.id,
+          quantity: item.quantity,
+          name: item.name,
+        }));
 
-      const res = await fetch('/api/checkout_sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: lineItems,
-          shipping: { cost: selectedShipping.price * 100, method: selectedShipping.id }
-        }),
-      });
+         console.log("📤 [checkout] sending request | email:", getBuyerEmail(), "| items:", lineItems.length);
+         console.log("🧾 [checkout] full buyerEmail state before fetch:", buyerEmail);
+         const effectiveEmail = getBuyerEmail();
 
-      const data = await res.json();
-      console.log("Received from backend:", data); // 🔹 log backend response
+         const res = await fetch('/api/checkout_sessions', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({
+             items: lineItems,
+             shipping: { cost: selectedShipping.price * 100, method: selectedShipping.id },
+             email: effectiveEmail,
+           }),
+         });
 
-      if (data.client_secret) {
-        console.log("Setting clientSecret:", data.client_secret); // 🔹 log before setting state
-        setClientSecret(data.client_secret);
-      } else {
-        console.error('No client_secret returned:', data);
+        const data = await res.json();
+        console.log("📥 [checkout] response:", data);
+
+        if (data.client_secret) {
+          setClientSecret(data.client_secret);
+        } else {
+          console.error('No client_secret returned:', data);
+        }
+      } catch (err) {
+        console.error('Error creating payment intent:', err);
+      } finally {
+        setLoadingSecret(false);
       }
-    } catch (err) {
-      console.error('Error creating payment intent:', err);
-    } finally {
-      setLoadingSecret(false);
-    }
-  };
+    };
 
-  fetchClientSecret();
-}, [items, selectedShipping, isEmpty]);
+    fetchClientSecret();
+  }, [items, selectedShipping, isEmpty, buyerEmail, user]);
 
 // Optional: log whenever clientSecret changes
 useEffect(() => {

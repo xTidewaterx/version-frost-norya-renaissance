@@ -132,7 +132,7 @@ export default function FavoritesPage() {
             </p>
             <button
               onClick={() => router.push('/products')}
-              className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-8 rounded-lg transition-all"
+              className="bg-yellow-400 hover: text-black font-bold py-3 px-8 rounded-lg transition-all"
             >
               Utforsk produkter
             </button>

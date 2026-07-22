@@ -87,7 +87,7 @@ export default function AuthPage() {
 
         {authFlow === 'login' && (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-            <SignInUser />
+            <SignInUser defaultRole={selectedRole} />
           </div>
         )}
 

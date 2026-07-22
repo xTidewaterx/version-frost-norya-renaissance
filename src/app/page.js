@@ -41,10 +41,8 @@ export default function Home() {
             <div className="relative mt-6 md:mt-0 md:absolute md:bottom-16 md:left-1/2 md:-translate-x-1/2 flex items-center text-glacial-white text-sm md:text-base whitespace-nowrap">
               <span className="font-sans uppercase tracking-wider hidden md:inline-block">Kuratert kvalitet</span>
               <span className="hidden md:block w-px h-6 bg-norwegian-gold mx-2"></span>
-              <span className="font-sans uppercase tracking-wider relative md:whitespace-nowrap">
-                <span className="absolute -left-6 -translate-x-full w-6 h-px bg-norwegian-gold hidden md:block"></span>
+              <span className="font-sans uppercase tracking-wider md:whitespace-nowrap">
                 Trygg handel
-                <span className="absolute -right-6 translate-x-full w-6 h-px bg-norwegian-gold hidden md:block"></span>
               </span>
               <span className="hidden md:block w-px h-6 bg-norwegian-gold mx-2"></span>
               <span className="font-sans uppercase tracking-wider hidden md:inline-block">Støtter norske produsenter</span>
@@ -63,6 +61,13 @@ export default function Home() {
              </svg>
            </div>
         </section>
+
+
+        
+        {/* Products Section with Header */}
+
+          <GetProducts variant="home" />
+
 
  {/* Manifesto Section */}
 <section className="px-6 md:px-16 bg-[#faf8f5] py-16 md:py-20">
@@ -128,18 +133,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Products Section with Header */}
-        <section id="products" className="px-6 md:px-12 py-16 md:py-20 bg-white">
-          <div className="max-w-7xl mx-auto mb-12">
-            <h2 className="text-3xl md:text-5xl font-light text-[#1a1a1a] mb-4">
-              Utvalgte kolleksjoner
-            </h2>
-            <p className="text-lg text-[#555]">
-              Håndplukket fra nordnorske skapere. Limiterte opplag, tidsløs design.
-            </p>
-          </div>
-          <GetProducts variant="home" />
-        </section>
       </main>
     </AuthProvider>
   );

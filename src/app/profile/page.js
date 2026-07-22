@@ -84,6 +84,7 @@ const ImageCropUploader = () => {
   const [profileThemeId, setProfileThemeId] = useState('fjord');
   const [authFlow, setAuthFlow] = useState('select');
   const [selectedRole, setSelectedRole] = useState('kunde');
+  const [userRole, setUserRole] = useState('civilian');
 
   const [creatorProducts, setCreatorProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -262,10 +263,27 @@ const ImageCropUploader = () => {
     fetchTheme();
   }, [db, user]);
 
+  useEffect(() => {
+    async function fetchUserRole() {
+      if (!user?.uid) return;
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setUserRole(userSnap.data()?.role || 'civilian');
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    }
+
+    fetchUserRole();
+  }, [db, user]);
+
   const activeTheme = PROFILE_THEMES.find((theme) => theme.id === profileThemeId) || PROFILE_THEMES[0];
 
-const UploadProductIfSignedIn = () =>
-  user?.uid ? (
+ const UploadProductIfSignedIn = () =>
+  user?.uid && userRole === 'seller' ? (
     <>
       {!showNewProduct ? (
         <button
@@ -550,7 +568,7 @@ return (
 
               {authFlow === 'login' && (
                 <div className="mt-6">
-                  <SignInUser />
+                  <SignInUser defaultRole={selectedRole} />
                 </div>
               )}
 
@@ -622,7 +640,7 @@ return (
           </section>
         )}
 
-        {user && (
+        {user && userRole === 'seller' && (
           <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">
             <div className="p-8 sm:p-10">
               <div className="mb-5 flex items-center gap-2">

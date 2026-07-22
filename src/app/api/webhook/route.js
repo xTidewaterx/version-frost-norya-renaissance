@@ -1,5 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { verifyStripeWebhook } from "@/lib/stripe";
+import { verifyStripeWebhook, stripe } from "@/lib/stripe";
 import {
   sendEmail,
   getBuyerConfirmationHtml,
@@ -14,6 +14,10 @@ export const dynamic = "force-dynamic";
 // Fallback recipient used when a PaymentIntent is missing the buyer/seller email.
 // Override via FALLBACK_EMAIL in .env.local if you prefer.
 const FALLBACK_EMAIL = process.env.FALLBACK_EMAIL || "johan12ab@gmail.com";
+
+// In-memory guard to avoid duplicate emails when both
+// checkout.session.completed and payment_intent.succeeded fire for the same order.
+const sentPaymentIntents = new Set();
 
 export async function GET() {
   return new Response("Webhook endpoint is alive!", { status: 200 });
@@ -39,17 +43,100 @@ export async function POST(req) {
 
   // Handle the events we care about.
   switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object;
+      const paymentIntentId = session.payment_intent;
+      const buyerEmail = session.customer_details?.email || FALLBACK_EMAIL;
+
+      let sellerEmail = FALLBACK_EMAIL;
+      let orderId = paymentIntentId || `order_${session.id}`;
+      let amount = 0;
+      let currency = "nok";
+      let items = [];
+
+      // Retrieve the linked PaymentIntent so we can read metadata
+      // (sellerEmail, orderId, items) that we stored on creation.
+      if (paymentIntentId) {
+        try {
+          const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+          sellerEmail = pi.metadata?.sellerEmail || FALLBACK_EMAIL;
+          orderId = pi.metadata?.orderId || paymentIntentId;
+          amount = pi.amount || 0;
+          currency = pi.currency || "nok";
+          if (pi.metadata?.items) {
+            try {
+              items = JSON.parse(pi.metadata.items);
+            } catch {
+              items = [];
+            }
+          }
+        } catch (err) {
+          console.error("❌ [webhook] failed to retrieve PaymentIntent:", err.message);
+        }
+      }
+
+      const usedFallback = !session.customer_details?.email;
+      console.log(
+        `🔔 [webhook][checkout.session] buyer_email=${buyerEmail} | fallback=${usedFallback} | orderId=${orderId}`
+      );
+      console.log("🔔 [webhook] full session object:", JSON.stringify(session, null, 2));
+
+      if (!sentPaymentIntents.has(orderId)) {
+        sentPaymentIntents.add(orderId);
+        try {
+          await Promise.all([
+            sendEmail({
+              to: buyerEmail,
+              subject: "Your NORYA order confirmation",
+              html: getBuyerConfirmationHtml({ orderId, amount, currency }),
+            }),
+            sendEmail({
+              to: sellerEmail,
+              subject: `New order received — ${orderId}`,
+              html: getSellerNotificationHtml({
+                orderId,
+                amount,
+                currency,
+                buyerEmail,
+                items,
+              }),
+            }),
+          ]);
+          console.log(`🎉 [email] SENT via checkout.session.completed for ${orderId}`);
+        } catch (err) {
+          console.error("❌ [email] FAILED to send order emails:", err);
+        }
+      } else {
+        console.log(`ℹ️ [webhook] duplicate checkout.session.completed suppressed for ${orderId}`);
+      }
+      break;
+    }
+
     case "payment_intent.succeeded": {
       const paymentIntent = event.data.object;
-
-      const buyerEmail = paymentIntent.receipt_email || FALLBACK_EMAIL;
-      const sellerEmail = paymentIntent.metadata?.sellerEmail || FALLBACK_EMAIL;
       const orderId = paymentIntent.metadata?.orderId || paymentIntent.id;
+
+      if (sentPaymentIntents.has(orderId)) {
+        console.log(`ℹ️ [webhook] duplicate payment_intent.succeeded suppressed for ${orderId}`);
+        break;
+      }
+
+      const buyerEmail =
+        paymentIntent.metadata?.buyerEmail ||
+        paymentIntent.receipt_email ||
+        FALLBACK_EMAIL;
+      const sellerEmail = paymentIntent.metadata?.sellerEmail || FALLBACK_EMAIL;
       const amount = paymentIntent.amount;
       const currency = paymentIntent.currency;
+      const usedFallback =
+        !paymentIntent.metadata?.buyerEmail && !paymentIntent.receipt_email;
 
-      // Note which recipients fell back so you can spot missing metadata.
-      if (!paymentIntent.receipt_email) {
+      console.log(
+        `🔔 [webhook] buyer_email=${buyerEmail} | fallback=${usedFallback} | orderId=${orderId}`
+      );
+      console.log("🔔 [webhook] full paymentIntent object:", JSON.stringify(paymentIntent, null, 2));
+
+      if (!paymentIntent.metadata?.buyerEmail && !paymentIntent.receipt_email) {
         console.warn(`⚠️ [email] buyer email missing → using fallback ${FALLBACK_EMAIL}`);
       }
       if (!paymentIntent.metadata?.sellerEmail) {
@@ -60,20 +147,14 @@ export async function POST(req) {
         `💳 [payment] succeeded | orderId: ${orderId} | buyer: ${buyerEmail} | seller: ${sellerEmail}`
       );
 
-      // Fire-and-forget the emails but await them so failures are caught and
-      // logged. We don't want a single email failure to crash the webhook.
+      sentPaymentIntents.add(orderId);
       try {
-        const emailTasks = [];
-
-        emailTasks.push(
+        await Promise.all([
           sendEmail({
             to: buyerEmail,
             subject: "Your NORYA order confirmation",
             html: getBuyerConfirmationHtml({ orderId, amount, currency }),
-          })
-        );
-
-        emailTasks.push(
+          }),
           sendEmail({
             to: sellerEmail,
             subject: `New order received — ${orderId}`,
@@ -86,20 +167,10 @@ export async function POST(req) {
                 ? JSON.parse(paymentIntent.metadata.items)
                 : [],
             }),
-          })
-        );
-
-        if (emailTasks.length > 0) {
-          console.log(`📨 [email] dispatching ${emailTasks.length} email(s) for order ${orderId}...`);
-          const results = await Promise.all(emailTasks);
-          console.log(
-            `🎉 [email] ALL SENT for order ${orderId} | messageIds: ${results.map((r) => r.messageId).join(", ")}`
-          );
-        } else {
-          console.warn(`⚠️ [email] NOTHING SENT for order ${orderId} (no recipient emails available).`);
-        }
+          }),
+        ]);
+        console.log(`🎉 [email] ALL SENT for order ${orderId}`);
       } catch (err) {
-        // Log but still return 200 so Stripe doesn't retry endlessly.
         console.error("❌ [email] FAILED to send order emails:", err);
       }
       break;

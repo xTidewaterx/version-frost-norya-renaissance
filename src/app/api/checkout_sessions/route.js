@@ -10,9 +10,15 @@ const SHIPPING_OPTIONS = {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { items, shipping } = body;
+    const { items, shipping, email } = body;
 
-    console.log("📥 Received checkout request:", { items, shipping });
+    console.log("📥 Received checkout request:", { items, shipping, email });
+    console.log("📥 [checkout] full request body:", JSON.stringify({ items, shipping, email }, null, 2));
+    if (email) {
+      console.log("📧 [checkout] buyer email:", email);
+    } else {
+      console.warn("⚠️ [checkout] buyer email is empty or missing");
+    }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       const errMsg = 'No items in request';
@@ -114,6 +120,7 @@ export async function POST(req) {
       
       metadata.shipping = shippingStr.slice(0, 500);
       metadata.items = itemsStr.slice(0, 500);
+      metadata.buyerEmail = (email || "").slice(0, 200);
       
       console.log("Metadata size - shipping:", metadata.shipping.length, "chars, items:", metadata.items.length, "chars");
       

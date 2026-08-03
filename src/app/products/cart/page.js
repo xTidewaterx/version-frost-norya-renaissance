@@ -185,15 +185,16 @@ export default function CartPage() {
 
       const activeShippingOption = shippingOptionToUse || shippingOption;
       const effectiveEmail = getBuyerEmail();
+      const sellerEmail = user?.stripeConnectEmail || user?.email || process.env.NEXT_PUBLIC_SELLER_EMAIL || "";
 
       console.log("🧾 [checkout] auth user email:", user?.email);
       console.log("🧾 [checkout] store email:", buyerEmailStore.get());
-      console.log("📤 [checkout] sending request | effectiveEmail:", effectiveEmail, "| items:", lineItems.length, "| shipping:", activeShippingOption.id);
+      console.log("📤 [checkout] sending request | effectiveEmail:", effectiveEmail, "| sellerEmail:", sellerEmail, "| items:", lineItems.length, "| shipping:", activeShippingOption.id);
 
       const res = await fetch("/api/checkout_sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: lineItems, shipping: activeShippingOption, email: effectiveEmail }),
+        body: JSON.stringify({ items: lineItems, shipping: activeShippingOption, email: effectiveEmail, sellerEmail }),
       });
 
       const data = await res.json();

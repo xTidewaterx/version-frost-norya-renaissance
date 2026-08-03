@@ -8,7 +8,7 @@ const ColorDot = ({ color, className = '' }) => (
   <span className={`inline-block h-2 w-2 rounded-full ${className}`} style={{ backgroundColor: color }} />
 );
 
-export default function PaymentInfo({ activeTheme }) {
+export default function PaymentInfo({ activeTheme, userRole }) {
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [accountStatus, setAccountStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,35 +64,90 @@ export default function PaymentInfo({ activeTheme }) {
     const urlParams = new URLSearchParams(window.location.search);
     const stripeParam = urlParams.get('stripe');
     if (stripeParam === 'success' && paymentInfo?.stripeConnectId) {
-      refreshAccountStatus(paymentInfo.stripeConnectId);
+      refreshAccountStatus(paymentInfo.stripeConnectId).then((data) => {
+        if (data?.needsDocumentVerification) {
+          simulateVerificationIfNeeded(paymentInfo.stripeConnectId);
+        } else if (data?.needsBankAccount || data?.needsTosAcceptance) {
+          setSuccess('Du må fullføre onboarding for å legge til bankkonto og akseptere vilkår.');
+        }
+      });
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [paymentInfo]);
 
   const refreshAccountStatus = async (accountId) => {
+    const res = await fetch('/api/stripe/retrieve-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId }),
+    });
+
+    const contentType = res.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    const data = isJson ? await res.json() : null;
+
+    console.log('🔍 [PaymentInfo] refresh status:', res.status, 'accountId:', accountId);
+
+    if (!res.ok) {
+      const rawText = data ? JSON.stringify(data) : 'empty response';
+      console.error('❌ [PaymentInfo] refresh failed:', res.status, rawText);
+      const message = data?.error || 'Kunne ikke hente kontostatus.';
+      const fallback = message.includes('does not have access')
+        ? 'Denne Stripe-kontoen har ikke tilgang til denne Connect-kontoen. Sjekk at STRIPE_SECRET_KEY i .env.local tilhører riktig Stripe-konto.'
+        : message;
+      throw new Error(fallback);
+    }
+
+    if (!data) {
+      throw new Error('Uventet svar fra Stripe-tjenesten.');
+    }
+
+    setAccountStatus(data);
+    console.log("📊 Stripe account status refreshed:", {
+      accountId,
+      details_submitted: data.details_submitted,
+      charges_enabled: data.charges_enabled,
+      payouts_enabled: data.payouts_enabled,
+      needsDocumentVerification: data.needsDocumentVerification,
+    });
+
+    if (data.charges_enabled && data.payouts_enabled) {
+      console.log("🎉 CONNECT ACCOUNT FULLY VERIFIED - Ready to receive payouts");
+    }
+
+    return data;
+  };
+
+  const simulateVerificationIfNeeded = async (accountId) => {
+    if (!accountStatus?.needsDocumentVerification) {
+      return;
+    }
+
     try {
-      const res = await fetch('/api/stripe/retrieve-account', {
+      console.log("🔵 [simulate] attempting simulated verification for test account:", accountId);
+      const res = await fetch('/api/stripe/simulate-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accountId }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setAccountStatus(data);
-        console.log("📊 Stripe account status refreshed:", {
-          accountId,
-          details_submitted: data.details_submitted,
-          charges_enabled: data.charges_enabled,
-          payouts_enabled: data.payouts_enabled,
-          needsDocumentVerification: data.needsDocumentVerification,
-        });
 
-        if (data.charges_enabled && data.payouts_enabled) {
-          console.log("🎉 CONNECT ACCOUNT FULLY VERIFIED - Ready to receive payouts");
-        }
+      if (!res.ok) {
+        console.error("❌ [simulate] failed:", data);
+        return;
+      }
+
+      console.log("✅ [simulate] verification simulated:", data);
+      setSuccess('Test-verifisering simulert. Oppdaterer status...');
+
+      // Re-fetch status after simulation
+      const refreshed = await refreshAccountStatus(accountId);
+
+      if (refreshed.charges_enabled && refreshed.payouts_enabled) {
+        setSuccess('🎉 Konto er nå fullt verifisert i testmodus.');
       }
     } catch (err) {
-      console.error('Failed to refresh account status:', err);
+      console.error("❌ [simulate] error:", err);
     }
   };
 
@@ -172,8 +227,18 @@ const startStripeOnboarding = async () => {
   const handleRefreshStatus = async () => {
     if (!paymentInfo?.stripeConnectId) return;
     setLoadingStatus(true);
-    await refreshAccountStatus(paymentInfo.stripeConnectId);
-    setLoadingStatus(false);
+    setError(null);
+    try {
+      const data = await refreshAccountStatus(paymentInfo.stripeConnectId);
+      if (data?.needsDocumentVerification) {
+        await simulateVerificationIfNeeded(paymentInfo.stripeConnectId);
+      }
+    } catch (err) {
+      console.error('Failed to refresh account status:', err);
+      setError('Kunne ikke oppdatere status. Prøv igjen senere.');
+    } finally {
+      setLoadingStatus(false);
+    }
   };
 
   const handleDisconnect = async () => {
@@ -265,7 +330,7 @@ if (loading) {
   );
 }
 
-return (
+return userRole === 'seller' ? (
   <div className="pt-6 pb-10 animate-fadeIn py-12 px-6 ">
     {/* Header */}
     <div className="py-12 px-6 mb-8 flex items-center gap-3 text-xs font-medium uppercase tracking-[0.28em]"
@@ -366,7 +431,13 @@ return (
                   <div className="mt-6 rounded-xl border-l-4 border-amber-400 bg-amber-50/60 p-4 shadow-sm">
                     <p className="text-xs text-slate-500">Gjenstående krav nå:</p>
                     <p className="text-sm font-medium text-red-600">
-                      {accountStatus.requirements_currently_due.join(", ")}
+                      {accountStatus.requirements_currently_due.map(req => {
+                        if (req === 'external_account') return 'Bankkonto (external_account)';
+                        if (req === 'tos_acceptance.date') return 'Vilkårsaccept - dato (tos_acceptance.date)';
+                        if (req === 'tos_acceptance.ip') return 'Vilkårsaccept - IP (tos_acceptance.ip)';
+                        if (req.startsWith('individual.verification.document')) return 'Identitetsdokument';
+                        return req;
+                      }).join(", ")}
                     </p>
                   </div>
                 )}
@@ -375,7 +446,13 @@ return (
                   <div className="mt-4 rounded-xl border-l-4 border-amber-400 bg-amber-50/60 p-4 shadow-sm">
                     <p className="text-xs text-slate-500">Fremtidige krav:</p>
                     <p className="text-sm font-medium text-amber-600">
-                      {accountStatus.requirements_eventually_due.join(", ")}
+                      {accountStatus.requirements_eventually_due.map(req => {
+                        if (req === 'external_account') return 'Bankkonto (external_account)';
+                        if (req === 'tos_acceptance.date') return 'Vilkårsaccept - dato (tos_acceptance.date)';
+                        if (req === 'tos_acceptance.ip') return 'Vilkårsaccept - IP (tos_acceptance.ip)';
+                        if (req.startsWith('individual.verification.document')) return 'Identitetsdokument';
+                        return req;
+                      }).join(", ")}
                     </p>
                   </div>
                 )}
@@ -394,6 +471,16 @@ return (
           >
             {loadingStatus ? "Oppdaterer..." : "Oppdater status"}
           </button>
+
+          {(accountStatus?.needsBankAccount || accountStatus?.needsTosAcceptance) && (
+            <button
+              onClick={startStripeOnboarding}
+              disabled={connecting}
+              className="flex-1 rounded-full border border-amber-300 bg-amber-50 px-5 py-4 text-center text-sm font-semibold text-amber-700 shadow-sm transition hover:bg-amber-100 disabled:opacity-50"
+            >
+              {connecting ? "Åpner..." : "Fullfør onboarding"}
+            </button>
+          )}
 
           {accountStatus?.needsDocumentVerification && (
             <button
@@ -457,6 +544,6 @@ return (
       Når du kobler til Stripe Connect, kan kundene dine sikkert betale for produktene dine. Pengene overføres direkte til din Stripe‑konto, og NORYA tar en liten prosent av hver ordre som plattformgebyr.
     </div>
   </div>
-);
+) : null;
 
 }

@@ -96,6 +96,7 @@ export default function CheckoutPage() {
          console.log("📤 [checkout] sending request | email:", getBuyerEmail(), "| items:", lineItems.length);
          console.log("🧾 [checkout] full buyerEmail state before fetch:", buyerEmail);
          const effectiveEmail = getBuyerEmail();
+         const sellerEmail = user?.stripeConnectEmail || user?.email || process.env.NEXT_PUBLIC_SELLER_EMAIL || "";
 
          const res = await fetch('/api/checkout_sessions', {
            method: 'POST',
@@ -104,6 +105,7 @@ export default function CheckoutPage() {
              items: lineItems,
              shipping: { cost: selectedShipping.price * 100, method: selectedShipping.id },
              email: effectiveEmail,
+             sellerEmail,
            }),
          });
 

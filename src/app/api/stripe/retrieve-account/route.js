@@ -1,24 +1,54 @@
-import Stripe from 'stripe';
+import Stripe from "stripe";
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeSecret = process.env.STRIPE_SECRET_KEY;
 
-if (!stripeSecretKey) {
-  throw new Error("❌ STRIPE_SECRET_KEY is required but not set in environment");
+if (!stripeSecret) {
+  console.error("❌ [retrieve-account] STRIPE_SECRET_KEY is missing");
 }
 
-console.log("🔵 Using Stripe key (retrieve-account):", stripeSecretKey.slice(0, 18) + "...");
-
-const stripe = new Stripe(stripeSecretKey, {
+const stripe = new Stripe(stripeSecret || "sk_test_placeholder", {
   apiVersion: "2024-06-20",
 });
 
 export async function POST(req) {
-  try {
-    const { accountId } = await req.json();
+  console.log("🔵 [retrieve-account] handler invoked");
 
-    if (!accountId) {
-      return Response.json({ error: 'accountId is required.' }, { status: 400 });
+  try {
+    const contentType = req.headers.get("content-type") || "";
+    console.log("🔵 [retrieve-account] content-type:", contentType);
+
+    let body = {};
+    try {
+      const text = await req.text();
+      console.log("🔵 [retrieve-account] raw body length:", text.length);
+      try {
+        body = JSON.parse(text);
+      } catch {
+        console.error("❌ [retrieve-account] JSON parse failed");
+        return new Response(
+          JSON.stringify({ error: "Invalid JSON body. Expected { accountId: string }" }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        );
+      }
+    } catch (err) {
+      console.error("❌ [retrieve-account] failed to read body:", err.message);
+      return new Response(
+        JSON.stringify({ error: "Failed to read request body" }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      );
     }
+
+    const accountId = body?.accountId;
+    if (!accountId || typeof accountId !== "string") {
+      console.error("❌ [retrieve-account] missing accountId");
+      return new Response(
+        JSON.stringify({ error: "accountId is required and must be a string." }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      );
+    }
+
+    console.log("🔵 [retrieve-account] STRIPE_SECRET_KEY:", stripeSecret);
+    console.log("🔵 [retrieve-account] accountId requested:", accountId);
 
     const account = await stripe.accounts.retrieve(accountId);
 
@@ -36,11 +66,15 @@ export async function POST(req) {
       account.tos_acceptance?.date == null ||
       account.tos_acceptance?.ip == null;
 
-    const needsDocumentVerification = requirementsCurrentlyDue.some((req) =>
-      req.startsWith('individual.verification.document')
-    );
+    const needsDocumentVerification =
+      requirementsCurrentlyDue.some((req) =>
+        req.startsWith('individual.verification.document')
+      ) ||
+      requirementsEventuallyDue.some((req) =>
+        req.startsWith('individual.verification.document')
+      );
 
-    return Response.json({
+    const payload = {
       details_submitted: account.details_submitted,
       charges_enabled: account.charges_enabled,
       payouts_enabled: account.payouts_enabled,
@@ -50,12 +84,22 @@ export async function POST(req) {
       needsBankAccount,
       needsTosAcceptance,
       needsDocumentVerification,
+    };
+
+    console.log("✅ [retrieve-account] retrieved:", accountId, payload);
+
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { "content-type": "application/json" },
     });
   } catch (err) {
-    console.error('Stripe retrieve-account error:', err);
-    return Response.json(
-      { error: err.message || 'Failed to retrieve account' },
-      { status: 500 }
-    );
+    console.error("❌ [retrieve-account] error:", err);
+    console.error("🔵 [retrieve-account] STRIPE_SECRET_KEY:", stripeSecret);
+
+    const message = err?.message || "Failed to retrieve account";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
   }
 }

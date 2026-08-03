@@ -83,7 +83,7 @@ const ImageCropUploader = () => {
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [profileThemeId, setProfileThemeId] = useState('fjord');
   const [authFlow, setAuthFlow] = useState('select');
-  const [selectedRole, setSelectedRole] = useState('kunde');
+  const [selectedRole, setSelectedRole] = useState('civilian');
   const [userRole, setUserRole] = useState('civilian');
 
   const [creatorProducts, setCreatorProducts] = useState([]);
@@ -513,9 +513,9 @@ return (
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => setSelectedRole('kunde')}
+                    onClick={() => setSelectedRole('civilian')}
                     className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
-                      selectedRole === 'kunde'
+                      selectedRole === 'civilian'
                         ? 'border-slate-900 bg-slate-900 text-white'
                         : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
                     }`}
@@ -524,9 +524,9 @@ return (
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedRole('selger')}
+                    onClick={() => setSelectedRole('seller')}
                     className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
-                      selectedRole === 'selger'
+                      selectedRole === 'seller'
                         ? 'border-slate-900 bg-slate-900 text-white'
                         : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
                     }`}
@@ -535,7 +535,7 @@ return (
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  {selectedRole === 'selger'
+                  {selectedRole === 'seller'
                     ? 'Som selger kan du publisere produkter og motta betalinger via Stripe Connect.'
                     : 'Som kunde kan du kjøpe produkter og følge skapere.'}
                 </p>
@@ -662,10 +662,40 @@ return (
           </section>
         )}
 
-        {user && (
+        {user && userRole === 'seller' && (
           <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">
             <div className="p-8 sm:p-10">
-              <PaymentInfo activeTheme={activeTheme} />
+              <div className="mb-5 flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-emerald-400" />
+                <h2 className={`${roboto.className} text-2xl font-semibold text-slate-900`}>
+                  Salg og inntekter
+                </h2>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl bg-slate-50/80 p-5 border border-slate-200">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Produkter</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{creatorProducts.length}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50/80 p-5 border border-slate-200">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Lagerverdi</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">
+                    {creatorProducts.reduce((sum, p) => sum + (Number(p.price) || 0), 0).toLocaleString()} NOK
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-slate-50/80 p-5 border border-slate-200">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Betalinger</p>
+                  <p className="mt-2 text-sm font-medium text-slate-700">Stripe Connect</p>
+                  <p className="text-xs text-slate-500 mt-1">Koble til for å motta utbetalinger</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {user && userRole === 'seller' && (
+          <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-sm">
+            <div className="p-8 sm:p-10">
+              <PaymentInfo activeTheme={activeTheme} userRole={userRole} />
             </div>
           </section>
         )}

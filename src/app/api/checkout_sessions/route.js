@@ -10,10 +10,10 @@ const SHIPPING_OPTIONS = {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { items, shipping, email } = body;
+    const { items, shipping, email, sellerEmail } = body;
 
-    console.log("📥 Received checkout request:", { items, shipping, email });
-    console.log("📥 [checkout] full request body:", JSON.stringify({ items, shipping, email }, null, 2));
+    console.log("📥 Received checkout request:", { items, shipping, email, sellerEmail });
+    console.log("📥 [checkout] full request body:", JSON.stringify({ items, shipping, email, sellerEmail }, null, 2));
     if (email) {
       console.log("📧 [checkout] buyer email:", email);
     } else {
@@ -97,12 +97,15 @@ export async function POST(req) {
     // Attach shipping metadata so webhook can create shipment after success
     const metadata = {};
     try {
-      // Only include essential shipping data for webhook (keep under Stripe's 500 char limit per field)
       const essentialShipping = shipping ? {
         id: selectedShipping.id,
         name: selectedShipping.name,
         cost: selectedShipping.cost,
-        // Only include minimal customer data needed for shipment
+        pickupPoint: selectedShipping.pickupPoint || shipping.pickupPoint || null,
+        address: selectedShipping.address || shipping.address || null,
+        postalCode: selectedShipping.postalCode || shipping.postalCode || null,
+        city: selectedShipping.city || shipping.city || null,
+        country: selectedShipping.country || shipping.country || null,
         customerData: shipping.customerData ? {
           name: shipping.customerData.name,
           email: shipping.customerData.email,
@@ -116,11 +119,12 @@ export async function POST(req) {
       } : null;
 
       const shippingStr = essentialShipping ? JSON.stringify(essentialShipping) : "";
-      const itemsStr = JSON.stringify(items.map(i => ({ id: i.id, name: i.name, quantity: i.quantity })));
+      const itemsStr = JSON.stringify(items.map(i => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price, sellerAccountId: i.sellerAccountId })));
       
       metadata.shipping = shippingStr.slice(0, 500);
-      metadata.items = itemsStr.slice(0, 500);
+      metadata.items = itemsStr.slice(0, 4000);
       metadata.buyerEmail = (email || "").slice(0, 200);
+      metadata.sellerEmail = (sellerEmail || "").slice(0, 200);
       
       console.log("Metadata size - shipping:", metadata.shipping.length, "chars, items:", metadata.items.length, "chars");
       
@@ -133,15 +137,23 @@ export async function POST(req) {
       metadata.items = "";
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: totalAmount,
-      currency: 'nok',
-      automatic_payment_methods: { enabled: true },
-      metadata,
-    });
+const session = await stripe.checkout.sessions.create({
+  payment_method_types: ['card'],
+  line_items: lineItems,
+  mode: 'payment',
+  customer_email: email,
+  metadata,
+  payment_intent_data: {
+    amount: totalAmount,
+    currency: 'nok',
+    metadata,
+  },
+  success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+  cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
+});
 
-    console.log('✅ PaymentIntent created:', paymentIntent.id, 'status:', paymentIntent.status);
-    return new Response(JSON.stringify({ client_secret: paymentIntent.client_secret }), { status: 200 });
+console.log('✅ Checkout Session created:', session.id);
+return new Response(JSON.stringify({ url: session.url }), { status: 200 });
 
   } catch (err) {
     console.error('❌ ERROR creating checkout session');

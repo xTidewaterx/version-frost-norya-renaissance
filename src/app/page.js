@@ -3,6 +3,7 @@
 import { AuthProvider } from './auth/authContext';
 import CreatorsMellow from '../components/creators/CreatorsMellow';
 import GetProducts from './components/homePage/get/GetProducts';
+import TestTrackingPage from './test-tracking/page';
 
 export default function Home() {
   return (
@@ -133,6 +134,8 @@ export default function Home() {
           </div>
         </section>
 
+
+<TestTrackingPage/>
       </main>
     </AuthProvider>
   );

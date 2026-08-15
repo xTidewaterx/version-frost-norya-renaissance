@@ -27,6 +27,7 @@ import {
 import ChatWindow from '../../../chat/ChatWindow';
 import PaymentInfo from '../../../app/components/PaymentInfo';
 import { Cormorant_Garamond, Space_Grotesk } from 'next/font/google';
+import CreatorsMellow from '../../../components/creators/CreatorsMellow';
 
 const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
@@ -145,6 +146,9 @@ export default function ProfilePage() {
   const [productCount, setProductCount] = useState(0);
   const [creatorProducts, setCreatorProducts] = useState([]);
   const [loadingCreatorProducts, setLoadingCreatorProducts] = useState(true);
+
+  const [discoverProfiles, setDiscoverProfiles] = useState([]);
+  const [loadingDiscover, setLoadingDiscover] = useState(true);
 
   const storage = getStorage();
   const chatSectionRef = useRef(null);
@@ -274,6 +278,29 @@ export default function ProfilePage() {
       chatSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [isChatVisible, chatId]);
+
+  useEffect(() => {
+    async function fetchDiscoverProfiles() {
+      if (!uid) return;
+      setLoadingDiscover(true);
+      try {
+        const snapshot = await getDocs(collection(db, 'publicUsers'));
+        const allUsers = snapshot.docs
+          .map((docItem) => ({ id: docItem.id, ...docItem.data() }))
+          .filter((u) => u.photoURL && u.photoURL.trim() && u.id !== uid)
+          .slice(0, 12);
+
+        setDiscoverProfiles(allUsers);
+      } catch (err) {
+        console.error('Failed to fetch discover profiles:', err);
+        setDiscoverProfiles([]);
+      } finally {
+        setLoadingDiscover(false);
+      }
+    }
+
+    fetchDiscoverProfiles();
+  }, [uid]);
 
   const isOwnProfile = currentUser?.uid === uid;
 
@@ -822,6 +849,68 @@ export default function ProfilePage() {
             </div>
           </section>
         )}
+
+        {/* Related Profiles - lazy loaded */}
+        <CreatorsMellow />
+
+        {/* Discover More Creators - horizontal scroll */}
+        <section className="rounded-[2rem] border border-[#eef1f5] bg-[#f8fafb] p-6 shadow-sm sm:p-10">
+          <div className="mb-6 flex items-center gap-3">
+            <span className="h-3 w-3 rounded-full bg-[#d4af37]" />
+            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Oppdag flere skapere</h2>
+          </div>
+
+          {loadingDiscover ? (
+            <div className="flex gap-4 overflow-hidden">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="w-[180px] flex-none rounded-[1.35rem] border border-slate-200 bg-white/70 p-3">
+                  <div className="aspect-[3/4] rounded-[1.1rem] bg-slate-200/80 seller-shimmer mb-3" />
+                  <div className="h-4 w-3/4 rounded-lg bg-slate-200/80 seller-shimmer mb-2" />
+                  <div className="h-3 w-1/2 rounded-lg bg-slate-200/80 seller-shimmer" />
+                </div>
+              ))}
+            </div>
+          ) : discoverProfiles.length === 0 ? (
+            <p className="text-center text-slate-500">Ingen andre skapere funnet.</p>
+          ) : (
+            <div className="relative">
+              <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {discoverProfiles.map((profile, index) => {
+                  const dotColor = ['#d4af37', '#1e3a5f', '#315044', '#6f2f3b', '#7a5322', '#4a355f'][index % 6];
+                  return (
+                    <Link
+                      key={profile.id}
+                      href={`/profile/${profile.id}`}
+                      className="group flex-none w-[180px] snap-start"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className="rounded-[1.35rem] border border-white bg-white/90 p-2.5 shadow-sm transition-all duration-500 ease-out hover:-translate-y-1 hover:shadow-lg">
+                        <div className="relative aspect-[3/4] overflow-hidden rounded-[1.1rem] bg-slate-100">
+                          <img
+                            src={profile.photoURL}
+                            alt={profile.displayName || 'Profile'}
+                            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        </div>
+                        <div className="px-1 pt-3 pb-1">
+                          <p className="truncate font-serif text-base font-medium text-slate-900">
+                            {profile.displayName || 'Uten navn'}
+                          </p>
+                          <div className="mt-1.5 flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                            <span className="text-xs text-slate-500">Skaper på NORYA</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
       </div>
 
 {/* Login Modal */}
@@ -891,6 +980,26 @@ export default function ProfilePage() {
 
         .gallery-card-bounce {
           animation: galleryCardBounce 560ms cubic-bezier(0.2, 0.95, 0.3, 1);
+        }
+
+        @keyframes sellerShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+
+        .seller-shimmer {
+          background: linear-gradient(90deg, #e6eae7 25%, #d5dbd8 50%, #e6eae7 75%);
+          background-size: 200% 100%;
+          animation: sellerShimmer 1.5s infinite;
+        }
+
+        .scrollbar-hide {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>

@@ -8,9 +8,7 @@ if (!stripeSecretKey) {
 
 console.log("🔵 Using Stripe key:", stripeSecretKey.slice(0, 18) + "...");
 
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2024-06-20",
-});
+const stripe = new Stripe(stripeSecretKey);
 
 export async function POST(req) {
   try {

@@ -4,8 +4,92 @@ import { AuthProvider } from './auth/authContext';
 import CreatorsMellow from '../components/creators/CreatorsMellow';
 import GetProducts from './components/homePage/get/GetProducts';
 import TestTrackingPage from './test-tracking/page';
+import { useState } from 'react';
+
+const HARDCODED_BOOKING_PAYLOAD = {
+  sender: {
+    name: "NORYA Marketplace AS",
+    address: {
+      addressLine: "Storgata 1",
+      addressLine2: null,
+      postalCode: "0155",
+      city: "OSLO",
+      countryCode: "NO",
+    },
+    contact: {
+      name: "NORYA Support",
+      email: "support@norya.no",
+      phoneNumber: "99999999",
+    },
+  },
+  recipient: {
+    name: "Test Customer",
+    email: "test@example.com",
+    address: {
+      addressLine: "Testveien 1",
+      addressLine2: null,
+      postalCode: "0155",
+      city: "OSLO",
+      countryCode: "NO",
+    },
+    contact: {
+      name: "Test Customer",
+      email: "test@example.com",
+      phoneNumber: "99999999",
+    },
+  },
+  product: {
+    id: "3067",
+    customerNumber: "5",
+  },
+  packages: [
+    {
+      weightInKg: 2,
+      goodsDescription: "NORYA test order",
+      dimensions: {
+        heightInCm: 10,
+        widthInCm: 10,
+        lengthInCm: 10,
+      },
+      correlationId: "TEST-PACKAGE-1",
+    },
+  ],
+  shippingDateTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  orderId: `TEST-ORDER-${Date.now()}`,
+};
 
 export default function Home() {
+  const [bookingResult, setBookingResult] = useState(null);
+  const [isBooking, setIsBooking] = useState(false);
+
+  const handleTestBringBooking = async () => {
+    setIsBooking(true);
+    setBookingResult(null);
+
+    try {
+      const response = await fetch('/api/book-shipment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(HARDCODED_BOOKING_PAYLOAD),
+      });
+
+      const data = await response.json();
+      setBookingResult({
+        status: response.status,
+        data,
+      });
+    } catch (error) {
+      setBookingResult({
+        status: 'ERROR',
+        data: { error: error.message },
+      });
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
   return (
     <AuthProvider>
       <main className="min-h-screen">
@@ -22,8 +106,8 @@ export default function Home() {
           </div>
 
 <div className="relative h-full flex flex-col justify-center items-center text-center px-6 md:px-12 pt-20">
-             
-             
+              
+              
               <h1 className="font-merriweather text-8xl text-white mb-6">NORYA</h1>
   <p className="font-sans text-norwegian-gold text-sm md:text-base tracking-[0.3em] uppercase mb-10 animate-fade-in-up">
                 Håndlaget i Norge
@@ -50,7 +134,7 @@ export default function Home() {
             </div>
 
            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce-slow">
-<svg
+ <svg
                 width="24"
                 height="24"
                 viewBox="0 0 24 24"
@@ -59,8 +143,8 @@ export default function Home() {
                 strokeWidth="1"
               >
                <path d="M12 5V19M12 19L5 12M12 19L19 12" strokeLinecap="round" strokeLinejoin="round" />
-             </svg>
-           </div>
+              </svg>
+            </div>
         </section>
 
 
@@ -86,7 +170,6 @@ export default function Home() {
 
         <CreatorsMellow />
 
-
         
        {/* Philosophy Section */}
         <section className="py-32 bg-[#1e3a5f] text-[#f5f0e1]">
@@ -97,43 +180,72 @@ export default function Home() {
            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
               <div>
 <div className="text-5xl font-serif text-norwegian-gold mb-6 font-black">
-                     I
-                  </div>
-                 <h3 className="font-sans text-xl uppercase tracking-wider mb-4">
-                   Integritet
-                 </h3>
-                 <p className="font-sans italic text-[#f5f0e1]/80">
-                   Hvert materiale er etisk anskaffet, hver prosess transparent. Vi står bak hvert sting.
-                 </p>
-               </div>
+                   I
+                </div>
+               <h3 className="font-sans text-xl uppercase tracking-wider mb-4">
+                 Integritet
+               </h3>
+               <p className="font-sans italic text-[#f5f0e1]/80">
+                 Hvert materiale er etisk anskaffet, hver prosess transparent. Vi står bak hvert sting.
+               </p>
+             </div>
 
-              <div>
+             <div>
 <div className="text-5xl font-serif text-norwegian-gold mb-6 font-black">
-                     II
-                  </div>
-                 <h3 className="font-sans text-xl uppercase tracking-wider mb-4">
-                   Intensjon
-                 </h3>
-                 <p className="font-sans italic text-[#f5f0e1]/80">
-                   Intet er tilfeldig. Hver kurve, hver linje tjener et formål — skjønnhet i funksjon, funksjon i skjønnhet.
-                 </p>
-               </div>
+                   II
+                </div>
+               <h3 className="font-sans text-xl uppercase tracking-wider mb-4">
+                 Intensjon
+               </h3>
+               <p className="font-sans italic text-[#f5f0e1]/80">
+                 Intet er tilfeldig. Hver kurve, hver linje tjener et formål — skjønnhet i funksjon, funksjon i skjønnhet.
+               </p>
+             </div>
 
-              <div>
+             <div>
 <div className="text-5xl font-serif text-norwegian-gold mb-6 font-black">
-                     III
-                  </div>
-                 <h3 className="font-sans text-xl uppercase tracking-wider mb-4">
-                   Tidløshet
-                 </h3>
-                 <p className="font-sans italic text-[#f5f0e1]/80">
-                   Vi skaper pieces ment å overleve trender, å bli arvestykker gått gjennom generasjoner.
-                 </p>
-               </div>
-            </div>
-          </div>
-        </section>
+                   III
+                </div>
+               <h3 className="font-sans text-xl uppercase tracking-wider mb-4">
+                 Tidløshet
+               </h3>
+               <p className="font-sans italic text-[#f5f0e1]/80">
+                 Vi skaper pieces ment å overleve trender, å bli arvestykker gått gjennom generasjoner.
+               </p>
+             </div>
+           </div>
+         </div>
+       </section>
 
+
+       {/* Test Bring Booking Section */}
+       <section className="px-6 md:px-16 bg-[#f5f5f5] py-12">
+         <div className="max-w-2xl mx-auto">
+           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+             <h3 className="font-sans text-sm uppercase tracking-[0.2em] text-gray-500 mb-4">Test Bring Booking</h3>
+             <button
+               onClick={handleTestBringBooking}
+               disabled={isBooking}
+               className="w-full bg-[#1e3a5f] text-white font-sans font-semibold py-3 px-6 rounded-xl hover:bg-[#16354a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+               {isBooking ? 'Booker sending...' : 'Test Bring API Booking'}
+             </button>
+
+             {bookingResult && (
+               <div className="mt-4 p-4 rounded-xl bg-gray-50 border border-gray-200">
+                 <p className="font-sans text-sm font-semibold text-gray-700 mb-2">
+                   Status: <span className={bookingResult.status === 200 ? 'text-green-600' : 'text-red-600'}>
+                     {bookingResult.status}
+                   </span>
+                 </p>
+                 <pre className="text-xs text-gray-600 overflow-auto max-h-64 bg-white p-3 rounded-lg border border-gray-100">
+                   {JSON.stringify(bookingResult.data, null, 2)}
+                 </pre>
+               </div>
+             )}
+           </div>
+         </div>
+       </section>
 
 <TestTrackingPage/>
       </main>

@@ -2,6 +2,8 @@ import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+const APP_CURRENCY = (process.env.NEXT_PUBLIC_APP_CURRENCY || 'nok').toLowerCase();
+
 const SHIPPING_OPTIONS = {
   standard: { id: 'standard', name: 'Standard frakt (2-4 dager)', cost: 5000 },
   express: { id: 'express', name: 'Ekspressfrakt (1-2 dager)', cost: 15000 },
@@ -43,7 +45,7 @@ export async function POST(req) {
 
       return {
         price_data: {
-          currency: 'nok',
+          currency: APP_CURRENCY,
           product_data: { name: item.name || 'Produkt' },
           unit_amount: amount,
         },
@@ -59,7 +61,7 @@ export async function POST(req) {
 
     lineItems.push({
       price_data: {
-        currency: 'nok',
+        currency: APP_CURRENCY,
         product_data: { name: selectedShipping.name },
         unit_amount: selectedShipping.cost,
       },
@@ -72,11 +74,11 @@ export async function POST(req) {
       0
     );
 
-    console.log("💳 TOTAL amount being sent to Stripe:", totalAmount, "øre =", (totalAmount / 100).toFixed(2), "NOK");
+    console.log("💳 TOTAL amount being sent to Stripe:", totalAmount, "øre =", (totalAmount / 100).toFixed(2), APP_CURRENCY.toUpperCase());
 
     // Validate amount
     if (!Number.isInteger(totalAmount) || totalAmount < 300) {
-      const errMsg = `Invalid total amount: ${totalAmount} øre (minimum 300 øre / 3 NOK required)`;
+      const errMsg = `Invalid total amount: ${totalAmount} øre (minimum 300 øre / 3 ${APP_CURRENCY.toUpperCase()} required)`;
       console.error("❌", errMsg);
       return new Response(JSON.stringify({ error: errMsg }), { status: 400 });
     }
@@ -90,9 +92,6 @@ export async function POST(req) {
         console.warn(`  ⚠️  Item ${idx} total is very small: ${total} øre`);
       }
     });
-
-
-
 
     // Attach shipping metadata so webhook can create shipment after success
     const metadata = {};
@@ -137,26 +136,20 @@ export async function POST(req) {
       metadata.items = "";
     }
 
-const session = await stripe.checkout.sessions.create({
-  payment_method_types: ['card'],
-  line_items: lineItems,
-  mode: 'payment',
-  customer_email: email,
-  metadata,
-  payment_intent_data: {
-    amount: totalAmount,
-    currency: 'nok',
-    metadata,
-  },
-  success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-  cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
-});
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: totalAmount,
+      currency: APP_CURRENCY,
+      payment_method_types: ['card'],
+      metadata,
+      description: `NORYA order - ${items.length} item(s)`,
+      receipt_email: email,
+    });
 
-console.log('✅ Checkout Session created:', session.id);
-return new Response(JSON.stringify({ url: session.url }), { status: 200 });
+    console.log('✅ PaymentIntent created:', paymentIntent.id, 'client_secret:', paymentIntent.client_secret);
+    return new Response(JSON.stringify({ client_secret: paymentIntent.client_secret }), { status: 200 });
 
   } catch (err) {
-    console.error('❌ ERROR creating checkout session');
+    console.error('❌ ERROR creating payment intent');
     console.error('  Message:', err.message);
     console.error('  Type:', err.type);
     
@@ -180,10 +173,10 @@ return new Response(JSON.stringify({ url: session.url }), { status: 200 });
     let userMsg = "Feil ved betaling. Prøv igjen.";
     let status = 500;
 
-if (err.message.includes('missing a valid product id') || err.message.includes('has no default price')) {
-       userMsg = "Mangler vare i handlekurven. Oppdater siden og legg varen i handlekurven på nytt.";
-       status = 400;
-     }
+    if (err.message.includes('missing a valid product id') || err.message.includes('has no default price')) {
+      userMsg = "Mangler vare i handlekurven. Oppdater siden og legg varen i handlekurven på nytt.";
+      status = 400;
+    }
     if (err.message.includes('minimum')) {
       userMsg = "Ordresummen må være minst 3 NOK.";
       status = 400;
@@ -192,6 +185,9 @@ if (err.message.includes('missing a valid product id') || err.message.includes('
       status = 400;
     } else if (err.type === 'StripeInvalidRequestError') {
       userMsg = `Ugyldig betalingsforespørsel: ${err.message}`;
+      status = 400;
+    } else {
+      userMsg = `Betalingsfeil: ${err.message || 'Ukjent feil'}`;
       status = 400;
     }
 

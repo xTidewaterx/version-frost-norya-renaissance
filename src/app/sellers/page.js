@@ -160,9 +160,9 @@ export default function GetProfiles() {
                     className="seller-card group block"
                     style={{ animationDelay: `${index * 80}ms` }}
                   >
-                    <div className="relative bg-white rounded-[28px] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 ease-out hover:-translate-y-1 border border-[#f0f0f0]">
+                    <div className="group block">
                       {/* Image Card */}
-                      <div className="relative aspect-[4/5] overflow-hidden bg-[#f7f8f6]">
+                      <div className="relative aspect-[4/5] overflow-hidden bg-[#f7f8f6] rounded-[17px]">
                         <img
                           alt={profile.displayName || 'Profile'}
                           src={getTempSellerPhoto(index)}
@@ -177,12 +177,12 @@ export default function GetProfiles() {
                         </div>
                       </div>
 
-                      {/* Info Card */}
-                      <div className="p-6">
-                        <h3 className="font-serif text-xl md:text-2xl text-[#1a1a1a] mb-2 font-medium truncate">
+                      {/* Text directly on page - no background, no border */}
+                      <div className="mt-3 px-1">
+                        <h3 className="font-serif text-xl md:text-2xl text-[#1a1a1a] mb-1 font-medium truncate leading-tight">
                           {profile.displayName || 'Uten navn'}
                         </h3>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37]"></span>
                           <span className="text-sm text-[#5a6767] font-medium">Skaper på NORYA</span>
                         </div>
@@ -207,10 +207,10 @@ export default function GetProfiles() {
             {!isLoaded && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
                 {[...Array(8)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-[28px] overflow-hidden">
+                  <div key={i} className="bg-white rounded-[17px] overflow-hidden border border-[#f0f0f0]">
                     <div className="aspect-[4/5] bg-[#e6eae7] seller-shimmer"></div>
-                    <div className="p-6">
-                      <div className="h-6 bg-[#e6eae7] rounded-lg mb-3 w-3/4 seller-shimmer"></div>
+                    <div className="mt-3 px-1">
+                      <div className="h-6 bg-[#e6eae7] rounded-lg mb-1 w-3/4 seller-shimmer"></div>
                       <div className="h-4 bg-[#e6eae7] rounded-lg w-1/2 seller-shimmer"></div>
                     </div>
                   </div>

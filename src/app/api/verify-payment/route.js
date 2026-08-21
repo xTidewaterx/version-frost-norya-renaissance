@@ -1,12 +1,7 @@
-// src/app/api/verify-payment/route.js
-import Stripe from "stripe";
 import { NextResponse } from "next/server";
+import { withRateLimit } from "../lib/rateLimit";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
-});
-
-export async function GET(req) {
+const handler = async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const payment_intent = searchParams.get("payment_intent");
@@ -15,26 +10,36 @@ export async function GET(req) {
       return NextResponse.json({ ok: false, error: "Missing payment_intent" }, { status: 400 });
     }
 
-    // Retrieve the PaymentIntent from Stripe
+    const stripe = (await import("../../../lib/stripe")).stripe;
     const pi = await stripe.paymentIntents.retrieve(payment_intent);
 
-    // Return consistent JSON
     if (pi.status === "succeeded") {
+      const consignmentNumber = pi.metadata?.consignmentNumber || null;
+      const trackingUrl = consignmentNumber
+        ? `https://sporing.posten.no/sporing/${encodeURIComponent(consignmentNumber)}`
+        : null;
       return NextResponse.json({
         ok: true,
         status: pi.status,
-        amount_received: pi.amount_received,
-        currency: pi.currency,
-      });
-    } else {
-      return NextResponse.json({
-        ok: false,
-        status: pi.status,
-        message: "Payment not succeeded yet",
+        consignmentNumber,
+        trackingUrl,
       });
     }
-  } catch (err) {
-    console.error("verify-payment error:", err);
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+
+    const consignmentNumber = pi.metadata?.consignmentNumber || null;
+    const trackingUrl = consignmentNumber
+      ? `https://sporing.posten.no/sporing/${encodeURIComponent(consignmentNumber)}`
+      : null;
+    return NextResponse.json({
+      ok: false,
+      status: pi.status,
+      message: "Payment not succeeded yet",
+      consignmentNumber,
+      trackingUrl,
+    });
+  } catch {
+    return NextResponse.json({ ok: false, error: "Verification failed" }, { status: 500 });
   }
-}
+};
+
+export const GET = withRateLimit(20, 60000)(handler);

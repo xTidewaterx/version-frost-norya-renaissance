@@ -91,6 +91,10 @@ export default function SuccessClient() {
     );
 
   const showModel = status === "succeeded";
+  const consignmentNumber = info?.consignmentNumber || null;
+  const trackingUrl = consignmentNumber
+    ? `https://sporing.posten.no/sporing/${encodeURIComponent(consignmentNumber)}`
+    : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#faf7f1] via-[#f5efe3] to-[#e8dec8] flex items-center justify-center p-4 sm:p-6 md:p-8">
@@ -121,6 +125,20 @@ export default function SuccessClient() {
                 Takk for kjøpet ditt. Bestillingen din er bekreftet og blir
                 sendt snart.
               </p>
+
+              {trackingUrl && (
+                <div className="mt-6 rounded-xl border border-[#e4e4e7] bg-white/80 p-5 text-left shadow-sm">
+                  <p className="text-sm font-semibold text-[#5f5543]">Sporing</p>
+                  <p className="mt-1 text-lg font-bold text-[#2563eb]">
+                    <a href={trackingUrl} target="_blank" rel="noreferrer">
+                      {consignmentNumber}
+                    </a>
+                  </p>
+                  <p className="mt-2 text-sm text-[#5f5543]">
+                    En ordrebekreftelse med sporingsinformasjon er sendt til e-posten din.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { auth, db } from '../../../firebase/firebaseConfig';
 
@@ -873,15 +874,14 @@ export default function ProfilePage() {
           ) : discoverProfiles.length === 0 ? (
             <p className="text-center text-slate-500">Ingen andre skapere funnet.</p>
           ) : (
-            <div className="relative">
-              <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {discoverProfiles.map((profile, index) => {
                   const dotColor = ['#d4af37', '#1e3a5f', '#315044', '#6f2f3b', '#7a5322', '#4a355f'][index % 6];
                   return (
                     <Link
                       key={profile.id}
                       href={`/profile/${profile.id}`}
-                      className="group flex-none w-[180px] snap-start"
+                      className="group"
                       style={{ animationDelay: `${index * 50}ms` }}
                     >
                       <div className="rounded-[1.35rem] border border-white bg-white/90 p-2.5 shadow-sm transition-all duration-500 ease-out hover:-translate-y-1 hover:shadow-lg">

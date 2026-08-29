@@ -93,7 +93,7 @@ export default function AuthPage() {
 
         {authFlow === 'register' && (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-            <RegisterUser defaultRole={selectedRole} />
+            < defaultRole={selectedRole} />
           </div>
         )}
 

@@ -10,7 +10,7 @@ const handler = async (req) => {
       return NextResponse.json({ ok: false, error: "Missing payment_intent" }, { status: 400 });
     }
 
-    const stripe = (await import("../../../lib/stripe")).stripe;
+    const { stripe } = await import("../../../lib/stripe");
     const pi = await stripe.paymentIntents.retrieve(payment_intent);
 
     if (pi.status === "succeeded") {

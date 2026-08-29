@@ -36,6 +36,58 @@ async function markOrderProcessed(orderId, eventId) {
   }
 }
 
+async function getOrderPaymentIntents(orderId) {
+  try {
+    const orderDoc = await db.collection("orders").doc(orderId).get();
+    if (!orderDoc.exists) return [];
+    const data = orderDoc.data();
+    return data?.paymentIntents || [];
+  } catch {
+    return [];
+  }
+}
+
+async function areAllPaymentIntentsSucceeded(orderId) {
+  const paymentIntents = await getOrderPaymentIntents(orderId);
+  if (paymentIntents.length === 0) return true;
+
+  const succeeded = await Promise.all(
+    paymentIntents.map(async (pi) => {
+      try {
+        const stripePi = await stripe.paymentIntents.retrieve(pi.paymentIntentId);
+        return stripePi.status === "succeeded";
+      } catch {
+        return false;
+      }
+    })
+  );
+
+  return succeeded.every(Boolean);
+}
+
+async function markPaymentIntentProcessed(orderId, paymentIntentId) {
+  try {
+    const docRef = db.collection("stripe_pi_processed").doc(`${orderId}_${paymentIntentId}`);
+    await docRef.set({
+      orderId,
+      paymentIntentId,
+      processedAt: new Date(),
+    });
+  } catch {
+    // non-fatal
+  }
+}
+
+async function isPaymentIntentProcessed(orderId, paymentIntentId) {
+  try {
+    const docRef = db.collection("stripe_pi_processed").doc(`${orderId}_${paymentIntentId}`);
+    const doc = await docRef.get();
+    return doc.exists;
+  } catch {
+    return false;
+  }
+}
+
 async function safeParseJsonFromResponse(res) {
   const text = await res.text();
   const contentType = (res.headers.get("content-type") || "").toLowerCase();
@@ -292,9 +344,14 @@ async function tryBookShipment(paymentIntent) {
 
   const BRING_MAIN_PRODUCT = "3622";
   const BRING_PICKUP_SERVICE = "1073";
+  // Product 3622 (PIB — Pakke i postkassen) does NOT support pickup-point delivery.
+  // Sending a pickupPoint with this product triggers BOOK-INPUT-047.
+  const PICKUP_INCOMPAT_PRODUCTS = new Set(["3622"]);
 
   const isPickupPoint = Boolean(pickup);
   const isMailboxPickup = shipping.pickupPointType === "MAILBOX" || shipping.id === "MAILBOX";
+  const productSupportsPickup = !PICKUP_INCOMPAT_PRODUCTS.has(BRING_MAIN_PRODUCT);
+  const usePickup = (isPickupPoint || isMailboxPickup) && productSupportsPickup;
 
   const weightInKg = Number(process.env.DEFAULT_PACKAGE_WEIGHT_KG || 2);
   const lengthInCm = Number(process.env.DEFAULT_PACKAGE_LENGTH_CM || 30);
@@ -306,7 +363,7 @@ async function tryBookShipment(paymentIntent) {
   const product = {
     id: BRING_MAIN_PRODUCT,
     customerNumber: "5",
-    ...(isPickupPoint || isMailboxPickup ? { additionalServices: [{ id: BRING_PICKUP_SERVICE }] } : {}),
+    ...(usePickup ? { additionalServices: [{ id: BRING_PICKUP_SERVICE }] } : {}),
   };
 
   const normalizedRecipientAddress = {
@@ -317,7 +374,7 @@ async function tryBookShipment(paymentIntent) {
     countryCode: country,
   };
 
-  const normalizedPickupPoint = isPickupPoint
+  const normalizedPickupPoint = usePickup
     ? {
         id: pickup.id || shipping.id,
         countryCode: pickup.address?.countryCode || pickup.countryCode || country,
@@ -374,23 +431,47 @@ async function tryBookShipment(paymentIntent) {
     shippingDateTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     orderId: paymentIntent.metadata?.orderId || paymentIntent.id,
     pickupPoint: normalizedPickupPoint,
-    flow: isPickupPoint || isMailboxPickup ? "pickup" : "pib",
+    ...(usePickup ? { customerSpecifiedDispatchDateTime: new Date().toISOString() } : {}),
+    flow: usePickup ? "pickup" : "pib",
   };
 
   try {
     const appUrl = BRING_CLIENT_URL.endsWith("/") ? BRING_CLIENT_URL.slice(0, -1) : BRING_CLIENT_URL;
     const bookingEndpoint = `${appUrl}${BOOKING_URL}`;
 
-    const res = await fetch(bookingEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      redirect: "follow",
-    });
+    async function sendBooking(payloadToSend) {
+      const res = await fetch(bookingEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadToSend),
+        redirect: "follow",
+      });
+      const parsed = await safeParseJsonFromResponse(res);
+      return { res, parsed };
+    }
 
-    const parsed = await safeParseJsonFromResponse(res);
+    function isPickupPointNotSupportedError(parsed) {
+      const consignment = parsed.json?.details?.consignments?.[0] || parsed.json?.consignments?.[0];
+      if (!parsed.ok || !consignment?.errors) return false;
+      const errors = consignment.errors;
+      return errors.some(
+        (err) => err.code === "BOOK-INPUT-047" || err.code === "CUSTOMER_SPECIFIED_DISPATCH_DATE-INPUT-003"
+      );
+    }
+
+    let { res, parsed } = await sendBooking(payload);
+
+    if (!res.ok && isPickupPointNotSupportedError(parsed)) {
+      console.warn("⚠️ [book-shipment] pickup point not supported, retrying without pickupPoint...");
+      const fallbackPayload = JSON.parse(JSON.stringify(payload));
+      delete fallbackPayload.pickupPoint;
+      fallbackPayload.flow = "pib";
+      const retry = await sendBooking(fallbackPayload);
+      ({ res, parsed } = retry);
+    }
 
     if (!parsed.ok) {
+      console.error("❌ [book-shipment] booking failed:", res.status, parsed.text);
       return null;
     }
 
@@ -402,6 +483,7 @@ async function tryBookShipment(paymentIntent) {
       null;
 
     if (!res.ok || !consignmentNumber) {
+      console.error("❌ [book-shipment] booking returned no consignmentNumber");
       return null;
     }
 
@@ -451,9 +533,17 @@ async function sendOrderEmails(paymentIntent, buyerEmail, sellerEmail, orderId, 
   ]);
 }
 
-async function createSellerTransfers(paymentIntent, amount) {
+async function createSellerTransfers(paymentIntent, amount, orderId) {
+  if (paymentIntent.transfer_data?.destination) {
+    console.log("ℹ️ [webhook] PI has transfer_data.destination, Stripe handles transfer automatically:", paymentIntent.transfer_data.destination);
+    return;
+  }
+
   const itemsMeta = paymentIntent.metadata?.items;
-  if (!itemsMeta) return;
+  if (!itemsMeta) {
+    console.warn("⚠️ [webhook] no items metadata, skipping transfers");
+    return;
+  }
 
   const parsedItems = JSON.parse(itemsMeta);
   const sellerGroups = {};
@@ -483,13 +573,17 @@ async function createSellerTransfers(paymentIntent, amount) {
       source_transaction: paymentIntent.id,
     });
     if (existingTransfers.data.length === 0) {
-      await stripe.transfers.create({
+      const transfer = await stripe.transfers.create({
         amount: sellerAmount,
         currency: "nok",
         destination: sellerId,
         source_transaction: paymentIntent.id,
         transfer_group: paymentIntent.id,
+        description: `NORYA payout for order ${orderId}`,
       });
+      console.log("✅ [webhook] transfer created:", transfer.id, "to seller", sellerId, "amount:", sellerAmount);
+    } else {
+      console.log("ℹ️ [webhook] transfer already exists for seller", sellerId, "order:", orderId);
     }
   }
 }
@@ -497,33 +591,12 @@ async function createSellerTransfers(paymentIntent, amount) {
 async function processSuccessfulPayment(paymentIntent, buyerEmailOverride) {
   const orderId = paymentIntent.metadata?.orderId || paymentIntent.id;
 
-  if (PROCESSED_ORDERS.has(orderId)) {
+  const alreadyProcessed = await isPaymentIntentProcessed(orderId, paymentIntent.id);
+  if (alreadyProcessed) {
     return;
   }
 
-  try {
-    await db.runTransaction(async (transaction) => {
-      const docRef = db.collection("stripe_processed_orders").doc(orderId);
-      const doc = await transaction.get(docRef);
-      if (doc.exists) {
-        throw new Error("already_processed");
-      }
-      transaction.set(docRef, {
-        eventId: paymentIntent.id,
-        processedAt: new Date(),
-      });
-    });
-  } catch (err) {
-    if (err.message === "already_processed") {
-      return;
-    }
-    console.error("❌ [webhook] failed to mark order as processed:", err.message);
-    if (PROCESSED_ORDERS.has(orderId)) {
-      return;
-    }
-  }
-
-  PROCESSED_ORDERS.add(orderId);
+  await markPaymentIntentProcessed(orderId, paymentIntent.id);
 
   const buyerEmail =
     buyerEmailOverride ||
@@ -535,6 +608,12 @@ async function processSuccessfulPayment(paymentIntent, buyerEmailOverride) {
   const currency = paymentIntent.currency || "nok";
   const consignmentNumber = paymentIntent.metadata?.consignmentNumber || null;
 
+  const allSucceeded = await areAllPaymentIntentsSucceeded(orderId);
+  if (!allSucceeded) {
+    console.log("🔍 [webhook] order has multiple PIs, waiting for all to succeed:", orderId);
+    return;
+  }
+
   const effectiveConsignmentNumber = consignmentNumber || (await tryBookShipment(paymentIntent));
 
   try {
@@ -544,10 +623,21 @@ async function processSuccessfulPayment(paymentIntent, buyerEmailOverride) {
   }
 
   try {
-    await createSellerTransfers(paymentIntent, amount);
-  } catch {
-    // transfer failure should not block email sending
+    await createSellerTransfers(paymentIntent, amount, orderId);
+  } catch (err) {
+    console.error("❌ [webhook] transfer creation failed:", err && err.message ? err.message : String(err));
   }
+
+  try {
+    await db.collection("stripe_processed_orders").doc(orderId).set({
+      eventId: paymentIntent.id,
+      processedAt: new Date(),
+    });
+  } catch {
+    // non-fatal
+  }
+
+  PROCESSED_ORDERS.add(orderId);
 }
 
 export async function GET() {

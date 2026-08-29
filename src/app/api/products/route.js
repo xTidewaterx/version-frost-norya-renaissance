@@ -112,7 +112,8 @@ export async function GET(req) {
    CREATE NEW PRODUCT
 =========================== */
 export async function POST(req) {
-  if (!await verifyToken(req)) {
+  const decoded = await verifyToken(req);
+  if (!decoded) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
@@ -125,13 +126,30 @@ export async function POST(req) {
       );
     }
 
-    console.log("Creating new Stripe product:", { name, description, price, images, metadata });
+    let sellerAccountId = metadata?.sellerAccountId || null;
+    if (!sellerAccountId) {
+      try {
+        const userDoc = await db.collection("users").doc(decoded.uid).get();
+        if (userDoc.exists) {
+          sellerAccountId = userDoc.data().stripeConnectId || null;
+        }
+      } catch (err) {
+        console.warn("⚠️ [products] Could not fetch stripeConnectId from Firestore:", err.message);
+      }
+    }
+
+    const productMetadata = { ...(metadata || {}) };
+    if (sellerAccountId) {
+      productMetadata.sellerAccountId = sellerAccountId;
+    }
+
+    console.log("Creating new Stripe product:", { name, description, price, images, metadata: productMetadata, sellerAccountId });
 
     const product = await stripe.products.create({
       name,
       description: description || "",
       images: images || [],
-      metadata: metadata || {},
+      metadata: productMetadata,
     });
 
     const priceData = await stripe.prices.create({

@@ -31,7 +31,8 @@ export async function POST(req) {
       });
     }
 
-    if (!await verifyOwnerOrAdmin(req, id)) {
+    const decoded = await verifyOwnerOrAdmin(req, id);
+    if (!decoded) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
 
@@ -40,6 +41,18 @@ export async function POST(req) {
     const product = await stripe.products.retrieve(id);
     console.log("📦 Existing product found:", product.id);
 
+    let sellerAccountId = product.metadata?.sellerAccountId || null;
+    if (!sellerAccountId) {
+      try {
+        const userDoc = await db.collection("users").doc(decoded.uid).get();
+        if (userDoc.exists) {
+          sellerAccountId = userDoc.data().stripeConnectId || null;
+        }
+      } catch (err) {
+        console.warn("⚠️ [updateProduct] Could not fetch stripeConnectId:", err.message);
+      }
+    }
+
     // Prepare update payload
     const productUpdatePayload = {
       name,
@@ -47,7 +60,8 @@ export async function POST(req) {
       images: images || [],
       metadata: {
         ...(product.metadata || {}),
-        ...(metadata || {}), // ✅ Merge existing metadata with new creator info
+        ...(metadata || {}),
+        ...(sellerAccountId ? { sellerAccountId } : {}),
       },
     };
 

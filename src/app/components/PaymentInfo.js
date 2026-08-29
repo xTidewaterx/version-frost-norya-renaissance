@@ -66,7 +66,7 @@ export default function PaymentInfo({ activeTheme, userRole }) {
     if (stripeParam === 'success' && paymentInfo?.stripeConnectId) {
       refreshAccountStatus(paymentInfo.stripeConnectId).then((data) => {
         if (data?.needsDocumentVerification) {
-          simulateVerificationIfNeeded(paymentInfo.stripeConnectId);
+          simulateVerificationIfNeeded();
         } else if (data?.needsBankAccount || data?.needsTosAcceptance) {
           setSuccess('Du må fullføre onboarding for å legge til bankkonto og akseptere vilkår.');
         }
@@ -118,37 +118,15 @@ export default function PaymentInfo({ activeTheme, userRole }) {
     return data;
   };
 
-  const simulateVerificationIfNeeded = async (accountId) => {
+  const simulateVerificationIfNeeded = async () => {
     if (!accountStatus?.needsDocumentVerification) {
       return;
     }
 
-    try {
-      console.log("🔵 [simulate] attempting simulated verification for test account:", accountId);
-      const res = await fetch('/api/stripe/simulate-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.error("❌ [simulate] failed:", data);
-        return;
-      }
-
-      console.log("✅ [simulate] verification simulated:", data);
-      setSuccess('Test-verifisering simulert. Oppdaterer status...');
-
-      // Re-fetch status after simulation
-      const refreshed = await refreshAccountStatus(accountId);
-
-      if (refreshed.charges_enabled && refreshed.payouts_enabled) {
-        setSuccess('🎉 Konto er nå fullt verifisert i testmodus.');
-      }
-    } catch (err) {
-      console.error("❌ [simulate] error:", err);
-    }
+    // For Express accounts, identity verification requires the seller to go through
+    // Stripe's hosted onboarding flow and upload a document. Test mode accepts any image.
+    // The "Test-verifiser nå" button handles this — no auto-verification possible.
+    setSuccess('Konto krever identitetsverifisering. Klikk på "Test-verifiser nå" og last opp et bilde i Stripe-vinduet.');
   };
 
   const getDocumentOnboardingLink = async (accountId) => {
@@ -231,7 +209,7 @@ const startStripeOnboarding = async () => {
     try {
       const data = await refreshAccountStatus(paymentInfo.stripeConnectId);
       if (data?.needsDocumentVerification) {
-        await simulateVerificationIfNeeded(paymentInfo.stripeConnectId);
+        await simulateVerificationIfNeeded();
       }
     } catch (err) {
       console.error('Failed to refresh account status:', err);
@@ -487,6 +465,7 @@ return userRole === 'seller' ? (
               onClick={async () => {
                 setConnecting(true);
                 setError(null);
+                setSuccess('🔄 Åpner Stripe onboarding. Last opp et hvilket som helst bilde (f.eks. en blank JPEG) for å fullføre test-verifisering.');
                 try {
                   const url = await getDocumentOnboardingLink(paymentInfo.stripeConnectId);
                   window.location.href = url;
@@ -497,9 +476,9 @@ return userRole === 'seller' ? (
                 }
               }}
               disabled={connecting}
-              className="flex-1 rounded-full border border-amber-300 bg-amber-50 px-5 py-4 text-center text-sm font-semibold text-amber-700 shadow-sm transition hover:bg-amber-100 disabled:opacity-50"
+              className="flex-1 rounded-full border border-emerald-300 bg-emerald-50 px-5 py-4 text-center text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100 disabled:opacity-50"
             >
-              {connecting ? "Åpner..." : "Last opp KYC‑dokumenter"}
+              {connecting ? "Åpner..." : "Test-verifiser nå"}
             </button>
           )}
 
@@ -512,6 +491,35 @@ return userRole === 'seller' ? (
           >
             Stripe Dashboard
           </a>
+
+          <button
+            onClick={async () => {
+              setConnecting(true);
+              setError(null);
+              try {
+                const res = await fetch('/api/stripe/add-funds', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ accountId: paymentInfo.stripeConnectId, amount: 50000, currency: 'nok' }),
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                  throw new Error(data.error || 'Kunne ikke legge til test-finansiering.');
+                }
+
+                setSuccess(`✅ 500 NOK lagt til konto i testmodus! (Betaling: ${data.paymentIntentId})`);
+              } catch (err) {
+                setError(err.message || "Kunne ikke legge til test-finansiering.");
+              } finally {
+                setConnecting(false);
+              }
+            }}
+            disabled={connecting}
+            className="flex-1 rounded-full border border-blue-300 bg-blue-50 px-5 py-4 text-center text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:opacity-50"
+          >
+            {connecting ? "Sender..." : "+500 NOK (test)"}
+          </button>
 
           <button
             onClick={handleDisconnect}

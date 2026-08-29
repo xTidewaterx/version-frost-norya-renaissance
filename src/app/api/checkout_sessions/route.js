@@ -32,7 +32,6 @@ async function resolveProductPrice(productId) {
 function normalizeShipping(rawShipping, selectedShipping) {
   if (!rawShipping) return null;
 
-  // FIX: If pickupPointType exists but pickupPoint is missing → create safe fallback
   if (rawShipping.pickupPointType && !rawShipping.pickupPoint) {
     rawShipping.pickupPoint = {
       id: rawShipping.pickupPointType,
@@ -115,6 +114,14 @@ export async function POST(req) {
         );
       }
       const quantity = Math.max(1, Number(item.quantity) || 1);
+
+      if (!item.sellerAccountId) {
+        return NextResponse.json(
+          { error: `Product ${item.id} is missing sellerAccountId` },
+          { status: 400 }
+        );
+      }
+
       resolvedItems.push({
         price_data: {
           currency: priceData.currency,
@@ -122,6 +129,7 @@ export async function POST(req) {
           unit_amount: priceData.unitAmount,
         },
         quantity,
+        sellerAccountId: item.sellerAccountId || null,
       });
       totalAmount += priceData.unitAmount * quantity;
     }
@@ -130,120 +138,134 @@ export async function POST(req) {
     const selectedShipping = SHIPPING_OPTIONS[shippingId] || SHIPPING_OPTIONS.standard;
     const shippingCost = selectedShipping.cost;
 
-    // Add shipping line to Stripe pricing
-    resolvedItems.push({
-      price_data: {
-        currency: APP_CURRENCY,
-        product_data: { name: selectedShipping.name },
-        unit_amount: shippingCost,
-      },
-      quantity: 1,
-    });
-
     totalAmount += shippingCost;
 
     if (!Number.isInteger(totalAmount) || totalAmount < MIN_AMOUNT) {
-      return NextResponse.json({ error: `Invalid total amount` }, { status: 400 });
+      return NextResponse.json({ error: "Invalid total amount" }, { status: 400 });
     }
 
     const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const essentialShipping = normalizeShipping(shipping, selectedShipping);
 
-    let essentialShipping = null;
-    const metadata = {};
-
-    try {
-      essentialShipping = normalizeShipping(shipping, selectedShipping);
-
-      const shippingJson = essentialShipping ? JSON.stringify(essentialShipping) : "";
-
-      console.log("🧾 [checkout] shipping param keys:", shipping ? Object.keys(shipping) : "null");
-      console.log("🧾 [checkout] essentialShipping present:", !!essentialShipping, "length:", shippingJson.length);
-      console.log("🧾 [checkout] essentialShipping JSON:", shippingJson);
-      console.log("🧾 [checkout] metadata.shipping first 120 chars:", shippingJson.slice(0, 120));
-
-      metadata.shipping = shippingJson.slice(0, 500);
-
-      // FIX: Build items metadata ONLY from items, not resolvedItems
-      const itemMetadata = items.map((item, idx) => ({
-        id: item.id,
-        name: item.name,
-        quantity: resolvedItems[idx].quantity,
-        price: resolvedItems[idx].price_data.unit_amount,
-        sellerAccountId: item.sellerAccountId,
-      }));
-
-      metadata.items = JSON.stringify(itemMetadata).slice(0, 4000);
-      metadata.buyerEmail = (email || "").slice(0, 200);
-      metadata.sellerEmail = (sellerEmail || "").slice(0, 200);
-      metadata.orderId = orderId;
-    } catch (e) {
-      console.error("❌ [checkout] failed to build metadata:", e.message);
-      metadata.shipping = "";
-      metadata.items = "";
+    const sellerGroups = new Map();
+    for (const item of resolvedItems) {
+      const sellerId = item.sellerAccountId || "platform";
+      if (!sellerGroups.has(sellerId)) {
+        sellerGroups.set(sellerId, []);
+      }
+      sellerGroups.get(sellerId).push(item);
     }
 
-    console.log("🧾 [checkout] metadata object keys:", Object.keys(metadata));
-    console.log("🧾 [checkout] metadata.shipping length:", (metadata.shipping || "").length);
+    console.log("🧾 [checkout] seller groups:", Array.from(sellerGroups.keys()));
+    console.log("🧾 [checkout] items per seller:", Array.from(sellerGroups.values()).map(g => g.length));
 
-    const paymentIntent = await stripe.paymentIntents.create(
-      {
-        amount: totalAmount,
+    const paymentIntents = [];
+    const sellerSummaries = [];
+
+    for (const [sellerId, sellerItems] of sellerGroups.entries()) {
+      const sellerSubtotal = sellerItems.reduce(
+        (sum, item) => sum + item.price_data.unit_amount * item.quantity,
+        0
+      );
+      const sellerTotal = sellerSubtotal + shippingCost;
+      const isPlatform = sellerId === "platform";
+
+      const metadata = {
+        orderId,
+        buyerEmail: (email || "").slice(0, 200),
+        sellerEmail: (sellerEmail || "").slice(0, 200),
+        sellerId,
+        isPlatform: String(isPlatform),
+        items: JSON.stringify(
+          sellerItems.map((item) => ({
+            id: item.price_data.product_data?.name || "Product",
+            name: item.price_data.product_data?.name || "Product",
+            quantity: item.quantity,
+            price: item.price_data.unit_amount,
+            sellerAccountId: item.sellerAccountId || null,
+          }))
+        ).slice(0, 4000),
+      };
+
+      const shippingJson = essentialShipping ? JSON.stringify(essentialShipping) : "";
+      if (shippingJson) {
+        metadata.shipping = shippingJson.slice(0, 500);
+      }
+
+      const piParams = {
+        amount: sellerTotal,
         currency: APP_CURRENCY,
         payment_method_types: ["card"],
         metadata,
-        description: `NORYA order - ${resolvedItems.length} item(s)`,
+        description: `NORYA order - ${sellerItems.length} item(s)${isPlatform ? " (platform)" : ""}`,
         receipt_email: email,
-      },
-      { idempotencyKey: `order_${orderId}` }
-    );
+      };
 
-    console.log("🧾 [checkout] created PaymentIntent:", paymentIntent.id);
-    console.log("🧾 [checkout] returned metadata keys:", Object.keys(paymentIntent.metadata || {}));
-    console.log("🧾 [checkout] returned metadata.shipping length:", (paymentIntent.metadata?.shipping || "").length);
-    console.log("🧾 [checkout] returned metadata.shipping raw:", JSON.stringify(paymentIntent.metadata?.shipping));
-
-    if ((paymentIntent.metadata?.shipping || "").length === 0 && (metadata.shipping || "").length > 0) {
-      console.warn("⚠️ [checkout] Stripe dropped shipping metadata, attempting to update PI...");
-      try {
-        const updated = await stripe.paymentIntents.update(paymentIntent.id, {
-          metadata: { ...metadata },
-        });
-        console.log("🧾 [checkout] updated PI metadata.shipping length:", (updated.metadata?.shipping || "").length);
-      } catch (updateError) {
-        console.error("❌ [checkout] failed to update PI metadata:", updateError.message);
+      if (!isPlatform && sellerId) {
+        const platformFee = Math.ceil(sellerTotal * 0.15); // 15% platform fee
+        piParams.transfer_data = { destination: sellerId };
+        piParams.application_fee_amount = platformFee;
       }
+
+      const pi = await stripe.paymentIntents.create(
+        piParams,
+        { idempotencyKey: `${orderId}_${sellerId}` }
+      );
+
+      paymentIntents.push({
+        sellerId,
+        clientSecret: pi.client_secret,
+        paymentIntentId: pi.id,
+        amount: sellerTotal,
+        isPlatform,
+      });
+
+      sellerSummaries.push({
+        sellerId,
+        amount: sellerTotal,
+        items: sellerItems.length,
+        paymentIntentId: pi.id,
+        isPlatform,
+      });
+
+      console.log("🧾 [checkout] created PI for seller:", sellerId, "amount:", sellerTotal, "id:", pi.id, "transfer_data:", !isPlatform && sellerId ? "YES" : "NO");
     }
 
     try {
-      await db.collection("orders").doc(orderId).set({
+      const orderData = {
         orderId,
-        paymentIntentId: paymentIntent.id,
+        paymentIntents: paymentIntents.map((pi) => ({
+          paymentIntentId: pi.paymentIntentId,
+          sellerId: pi.sellerId,
+          amount: pi.amount,
+          isPlatform: pi.isPlatform,
+        })),
         shipping: essentialShipping,
         buyerEmail: email || null,
         sellerEmail: sellerEmail || null,
         amount: totalAmount,
         currency: APP_CURRENCY,
-
-        // FIX: Use itemMetadata instead of resolvedItems
-        items: items.map((item, idx) => ({
-          id: item.id,
-          name: item.name,
-          quantity: resolvedItems[idx].quantity,
-          price: resolvedItems[idx].price_data.unit_amount,
-          sellerAccountId: item.sellerAccountId,
+        items: resolvedItems.map((item) => ({
+          id: item.price_data.product_data?.name || "Product",
+          name: item.price_data.product_data?.name || "Product",
+          quantity: item.quantity,
+          price: item.price_data.unit_amount,
+          sellerAccountId: item.sellerAccountId || null,
         })),
-
         createdAt: new Date(),
-      });
-      console.log("🧾 [checkout] saved order to Firestore:", orderId);
+      };
+
+      await db.collection("orders").doc(orderId).set(orderData);
+      console.log("🧾 [checkout] saved order to Firestore:", orderId, "PIs:", paymentIntents.length);
     } catch (firestoreError) {
       console.error("❌ [checkout] failed to save order to Firestore:", firestoreError.message);
     }
 
     return new Response(
       JSON.stringify({
-        client_secret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
+        orderId,
+        paymentIntents,
+        totalAmount,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );

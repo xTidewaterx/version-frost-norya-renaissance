@@ -111,6 +111,17 @@ export async function POST(req) {
     return NextResponse.json({ success: true, uid: userRecord.uid, userTag, role: role || "civilian" });
   } catch (err) {
     console.error("Error creating user:", err);
+
+    if (err.code === "auth/email-already-in-use") {
+      return NextResponse.json(
+        {
+          error: "Denne e-posten er allerede registrert. Logg inn i stedet, eller slett kontoen din fra profilen.",
+          code: "email-already-in-use",
+        },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -41,7 +41,7 @@ export default function ProductDetailView({ completeProduct, id }) {
               {colors.map((color, idx) => (
                 <span
                   key={idx}
-                  className="w-8 h-8 rounded-full border border-slate-200"
+                  className="w-8 h-8 rounded-full border border-slate-300/50"
                   style={{ backgroundColor: color }}
                 />
               ))}
@@ -57,14 +57,14 @@ export default function ProductDetailView({ completeProduct, id }) {
           {canEditProduct && (
             <Link
               href={`?edit=true`}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-800 transition hover:bg-slate-50"
+              className="block w-full rounded-xl border border-slate-200 bg-slate-100/60 px-4 py-2.5 text-center text-sm font-medium text-slate-800 transition hover:bg-slate-200/60"
             >
               Rediger produkt
             </Link>
           )}
           <Link
             href="/products/cart"
-            className="block w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-800 transition hover:bg-slate-50"
+            className="block w-full rounded-xl border border-slate-200 bg-slate-100/60 px-4 py-2.5 text-center text-sm font-medium text-slate-800 transition hover:bg-slate-200/60"
           >
             Gå til handlekurv
           </Link>

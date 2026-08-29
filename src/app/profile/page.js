@@ -79,6 +79,8 @@ const ImageCropUploader = () => {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [newName, setNewName] = useState('');
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [showHalo, setShowHalo] = useState(false);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [profileThemeId, setProfileThemeId] = useState('fjord');
@@ -338,19 +340,32 @@ return (
                     )}
                   </div>
 
-                  <div className="flex-1 text-center sm:text-left">
+                   <div className="flex-1 text-center sm:text-left">
                     <div className="mb-2 flex items-center justify-center gap-2 sm:justify-start">
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                       <p className="text-xs uppercase tracking-[0.28em] font-medium text-slate-500">
                         Profiloversikt
                       </p>
                     </div>
-                    <h1 className={`${roboto.className} text-3xl font-semibold text-slate-900 tracking-tight sm:text-4xl`}>
-                      {effectiveName}
-                    </h1>
-                    <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500 sm:justify-start">
+                    <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                      <h1 className={`${roboto.className} text-3xl font-semibold text-slate-900 tracking-tight sm:text-4xl`}>
+                        {effectiveName}
+                      </h1>
+                      {userRole === 'seller' && (
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-700 ring-1 ring-amber-200">
+                          Seller Profile
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-3 flex items-center justify-center gap-4 text-sm text-slate-500 sm:justify-start">
                       <span className="h-2 w-2 rounded-full bg-sky-400" />
                       <span>Tema: <span className="font-semibold text-slate-700">{activeTheme.name}</span></span>
+                      {user?.email && (
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-slate-400" />
+                          {user.email}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -373,6 +388,65 @@ return (
                     Logg Ut
                   </button>
                 </div>
+
+                {!deleting ? (
+                  <button
+                    onClick={() => setDeleting(true)}
+                    className="mt-3 rounded-full border border-rose-300 bg-rose-50 px-5 py-2.5 text-sm font-medium text-rose-700 shadow-sm transition hover:bg-rose-100"
+                  >
+                    Slett konto
+                  </button>
+                ) : (
+                  <div className="mt-4 space-y-3 rounded-2xl border border-rose-200 bg-rose-50/60 p-4">
+                    <p className="text-sm text-slate-700">
+                      Skriv <strong className="font-semibold">slett</strong> for å bekrefte sletting.
+                      Dette kan ikke angres.
+                    </p>
+                    <input
+                      type="text"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder="slett"
+                      className="w-full rounded-xl border border-rose-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-rose-200"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          if (deleteConfirmText.toLowerCase() !== 'slett') {
+                            alert('Du må skrive "slett" for å bekrefte.');
+                            return;
+                          }
+                          try {
+                            const res = await fetch('/api/delete-account', { method: 'POST' });
+                            const result = await res.json();
+                            if (!res.ok) throw new Error(result.error || 'Sletting feilet');
+                            if (result.errors?.length) {
+                              console.warn('Sletting med advarsler:', result.errors);
+                            }
+                            await auth.signOut();
+                            alert('Kontoen er slettet.');
+                            window.location.href = '/';
+                          } catch (err) {
+                            console.error(err);
+                            alert(`Feil: ${err.message}`);
+                          }
+                        }}
+                        className="flex-1 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+                      >
+                        Bekreft sletting
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeleting(false);
+                          setDeleteConfirmText('');
+                        }}
+                        className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Avbryt
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               /* EDIT MODE */
@@ -448,7 +522,7 @@ return (
 
                   {/* Cropper */}
                   {imageSrc && (
-                    <div className="relative aspect-square w-full overflow-hidden rounded-[1.35rem] bg-slate-100 shadow-inner">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
                       <Cropper
                         image={imageSrc}
                         crop={crop}

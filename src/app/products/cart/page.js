@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useCart } from "react-use-cart";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import Image from "next/image";
 import { useAuth } from "../../auth/authContext";
 import { buyerEmailStore } from "../../utils/buyerEmailStore";
@@ -14,8 +13,6 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 
 /**
  * Helper: ensure pickupPoint is valid and contains numeric id
- * - Accepts the raw object from the UI / Bring API
- * - Returns normalized pickupPoint or null if invalid
  */
 function normalizePickupPoint(pickupPointFromUi) {
   if (!pickupPointFromUi) return null;
@@ -24,7 +21,6 @@ function normalizePickupPoint(pickupPointFromUi) {
   if (id == null) return null;
 
   const idStr = String(id).trim();
-  // Bring expects numeric IDs. If the UI provided a non-numeric id (like "MANNED"), treat as invalid.
   if (!/^\d+$/.test(idStr)) {
     console.warn("[checkout] pickupPoint.id is not numeric, ignoring pickupPoint:", idStr);
     return null;
@@ -45,7 +41,6 @@ function normalizePickupPoint(pickupPointFromUi) {
 
 /**
  * Build shipping object to send to backend
- * Matches the backend normalizeShipping shape
  */
 function buildShippingPayload({ shippingOption, addressForm, pickupPointFromUi, customerData }) {
   const pickupPoint = normalizePickupPoint(pickupPointFromUi);
@@ -54,19 +49,15 @@ function buildShippingPayload({ shippingOption, addressForm, pickupPointFromUi, 
     id: shippingOption?.id || "standard",
     name: shippingOption?.name || "Standard frakt (2-4 dager)",
     cost: shippingOption?.cost || 0,
-    // keep the type if UI provides it (e.g., "MANNED", "MAILBOX")
     pickupPointType:
       pickupPointFromUi?.type ||
       pickupPointFromUi?.pickupPointType ||
       (pickupPoint ? pickupPoint.type || "MANNED" : null),
-    // include pickupPoint only when valid numeric id present
     ...(pickupPoint ? { pickupPoint } : {}),
-    // top-level address fields (useful for fallback)
     address: addressForm?.address || null,
     postalCode: addressForm?.postalCode || null,
     city: addressForm?.city || null,
     country: addressForm?.country || "NO",
-    // customerData normalized
     customerData: customerData
       ? {
           name: customerData.name || "",
@@ -105,39 +96,89 @@ function buildItemsPayload(cartItems) {
    Checkout UI component
    ------------------------- */
 
-function CheckoutForm({ onBack, shippingOption, items }) {
+const cardElementStyle = {
+  style: {
+    base: {
+      fontSize: '16px',
+      color: '#1f2937',
+      fontWeight: '500',
+      fontFeatureSettings: '"clig" "none", "liga" "none"',
+      '::placeholder': { color: '#9ca3af' },
+    },
+    invalid: { color: '#ef4444' },
+  },
+  hidePostalCode: true,
+};
+
+function CheckoutForm({ onBack, shippingOption, items, paymentIntents, totalAmount, onAllPaymentsComplete }) {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [currentPiIndex, setCurrentPiIndex] = useState(0);
+  const [completedPiIds, setCompletedPiIds] = useState([]);
+  const [failedPiIds, setFailedPiIds] = useState([]);
+
+  const currentPi = paymentIntents?.[currentPiIndex];
+  const isMultiSeller = (paymentIntents || []).length > 1;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !currentPi) return;
 
     setLoading(true);
     setError('');
     setMessage('');
 
-    const { error: submitError } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: `${window.location.origin}/success` },
-    });
+    try {
+      const { error: submitError, paymentIntent } = await stripe.confirmCardPayment(
+        currentPi.clientSecret,
+        {
+          payment_method: {
+            card: elements.getElement(CardNumberElement),
+            billing_details: {
+              email: buyerEmailStore.get() || undefined,
+            },
+          },
+        }
+      );
 
-    if (submitError) {
-      setError(submitError.message);
-      console.error("❌ Payment error:", submitError);
+      if (submitError) {
+        setError(submitError.message);
+        setFailedPiIds((prev) => [...prev, currentPi.paymentIntentId]);
+        console.error("❌ Payment error:", submitError);
+        setLoading(false);
+        return;
+      }
+
+      if (paymentIntent?.status === "succeeded") {
+        setCompletedPiIds((prev) => [...prev, currentPi.paymentIntentId]);
+        setMessage(`Betaling ${currentPiIndex + 1}/${paymentIntents.length} fullført`);
+
+        if (currentPiIndex + 1 < paymentIntents.length) {
+          setCurrentPiIndex(currentPiIndex + 1);
+          setLoading(false);
+        } else {
+          setMessage("Alle betalinger fullført! Videresender...");
+          setTimeout(() => {
+            onAllPaymentsComplete?.();
+          }, 800);
+        }
+      }
+    } catch (err) {
+      setError("Uventet feil under betaling. Prøv igjen.");
+      console.error("❌ Payment exception:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (!stripe || !elements) {
     return <p className="text-red-600">Payment setup failed. Please refresh the page.</p>;
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const totalSum = subtotal + shippingOption.cost;
+  const subtotal = items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0);
 
   return (
     <div className="w-full max-w-2xl">
@@ -166,25 +207,90 @@ function CheckoutForm({ onBack, shippingOption, items }) {
 
         <div className="flex justify-between text-lg font-manrope font-bold">
           <span>Total:</span>
-          <span className="text-norwegian-gold font-manrope">{(totalSum / 100).toFixed(2)} NOK</span>
+          <span className="text-norwegian-gold font-manrope">{(totalAmount / 100).toFixed(2)} NOK</span>
         </div>
 
         <div className="mt-4 pt-4 border-t border-border-cool">
           <p className="text-sm font-manrope font-bold text-charcoal-text mb-2">Leveringsalternativ:</p>
           <p className="text-sm text-ice-medium font-manrope">{shippingOption.name}</p>
         </div>
+
+        {isMultiSeller && (
+          <div className="mt-4 pt-4 border-t border-border-cool">
+            <p className="text-sm font-manrope font-bold text-charcoal-text mb-2">Betaling fordelt på {paymentIntents.length} selgere</p>
+            <div className="space-y-1">
+              {paymentIntents.map((pi, idx) => (
+                <div key={pi.paymentIntentId} className="flex items-center justify-between text-sm">
+                  <span className="text-ice-medium font-manrope">
+                    {idx + 1}. Selger {pi.sellerId?.slice(0, 12)}...
+                    {pi.isPlatform && " (plattform)"}
+                  </span>
+                  <span className={`font-manrope font-bold ${completedPiIds.includes(pi.paymentIntentId) ? 'text-green-600' : failedPiIds.includes(pi.paymentIntentId) ? 'text-red-600' : 'text-slate-700'}`}>
+                    {(pi.amount / 100).toFixed(2)} NOK
+                    {completedPiIds.includes(pi.paymentIntentId) && ' ✅'}
+                    {failedPiIds.includes(pi.paymentIntentId) && ' ❌'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-border-cool">
         <h3 className="font-manrope text-ice-deep mb-4">Betalingsmetode</h3>
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-6 rounded-2xl border border-[#e4e4e7] bg-[#faf7f1] p-5 text-sm">
+            <p className="font-manrope font-bold mb-2 text-[#2d2a23]">Testmodus</p>
+            <div className="space-y-1 text-[#5f5543]">
+              <p>• Kortnummer: <span className="font-mono font-semibold">4242 4242 4242 4242</span></p>
+              <p>• Utløp: <span className="font-mono font-semibold">12/34</span> | CVC: <span className="font-mono font-semibold">123</span></p>
+            </div>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
-          <PaymentElement />
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-medium text-[#8a7b58] uppercase tracking-wider mb-1.5">
+                Kortnummer
+              </label>
+              <div className="rounded-xl border border-[#e4e4e7] bg-white px-4 py-3.5 shadow-sm transition-colors focus-within:border-[#2f2a23] focus-within:ring-2 focus-within:ring-[#d4af37]/10">
+                <CardNumberElement
+                  options={cardElementStyle}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-[#8a7b58] uppercase tracking-wider mb-1.5">
+                  Utløp
+                </label>
+                <div className="rounded-xl border border-[#e4e4e7] bg-white px-4 py-3.5 shadow-sm transition-colors focus-within:border-[#2f2a23] focus-within:ring-2 focus-within:ring-[#d4af37]/10">
+                  <CardExpiryElement
+                    options={cardElementStyle}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#8a7b58] uppercase tracking-wider mb-1.5">
+                  CVC
+                </label>
+                <div className="rounded-xl border border-[#e4e4e7] bg-white px-4 py-3.5 shadow-sm transition-colors focus-within:border-[#2f2a23] focus-within:ring-2 focus-within:ring-[#d4af37]/10">
+                  <CardCvcElement
+                    options={{
+                      style: cardElementStyle.style,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
           <button
             type="submit"
-            disabled={!stripe || loading}
-            className="w-full bg-norwegian-gold text-ice-deep font-manrope font-bold py-3 rounded-lg hover:bg-yellow-300 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!stripe || loading || completedPiIds.includes(currentPi?.paymentIntentId)}
+            className="w-full bg-norwegian-gold text-ice-deep font-manrope font-bold py-3 rounded-xl hover:bg-yellow-300 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Behandler betaling…" : "Fullfør betaling"}
+            {loading ? "Behandler betaling…" : `Betal ${currentPi ? (currentPi.amount / 100).toFixed(2) : '0'} NOK`}
           </button>
           {message && <div className="text-green-600 mt-2 font-manrope text-sm">{message}</div>}
           {error && <div className="text-red-600 mt-2 text-sm font-manrope">{error}</div>}
@@ -207,8 +313,9 @@ export default function CartPage() {
 
   const [currentItems, setCurrentItems] = useState([]);
   const [isClient, setIsClient] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState(1);
-  const [clientSecret, setClientSecret] = useState(null);
+  const [paymentIntents, setPaymentIntents] = useState(null);
   const [loadingSecret, setLoadingSecret] = useState(false);
   const syncedRef = useRef(false);
   const [shippingOption, setShippingOption] = useState({
@@ -218,7 +325,7 @@ export default function CartPage() {
   });
   const [processingPickupPoint, setProcessingPickupPoint] = useState(false);
   const [buyerEmail, setBuyerEmail] = useState(() => buyerEmailStore.get() || "");
-  const [selectedPickupPoint, setSelectedPickupPoint] = useState(null); // raw pickup point object from UI/API
+  const [selectedPickupPoint, setSelectedPickupPoint] = useState(null);
   const [addressForm, setAddressForm] = useState({ address: "", postalCode: "", city: "", country: "NO" });
   const [customerData, setCustomerData] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -256,6 +363,8 @@ export default function CartPage() {
     } catch (err) {
       console.error("❌ Failed to sync cart from localStorage:", err);
       syncedRef.current = true;
+    } finally {
+      setHydrated(true);
     }
   }, [isClient, setItems]);
 
@@ -274,7 +383,6 @@ export default function CartPage() {
         const pp = JSON.parse(savedPickupPoint);
         const shippingData = savedShipping ? JSON.parse(savedShipping) : {};
 
-        // Build a raw pickup point object preserving Bring numeric id if present
         const pickupPointObj = {
           id: pp.id,
           name: pp.name,
@@ -299,22 +407,18 @@ export default function CartPage() {
         };
         setShippingOption(shipping);
         localStorage.removeItem("norya_selected_pickup_point");
-        // call proceed to payment with shippingOption that includes pickupPoint raw object
         handleProceedToPayment(shipping, pickupPointObj);
       }
     } catch (e) {
       console.warn("[cart] failed to restore saved pickup point:", e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartItems.length]); // run when cart items are available
+  }, [cartItems.length]);
 
   const subtotal = (cartItems || []).reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0);
-  const totalSum = subtotal + (shippingOption?.cost || 0);
 
   /**
    * Proceed to payment: builds payload and calls /api/checkout_sessions
-   * shippingOverride: optional shipping object (used when restoring pickup point)
-   * pickupPointOverride: optional raw pickup point object (from Bring API)
    */
   const handleProceedToPayment = useCallback(async (shippingOverride = null, pickupPointOverride = null) => {
     setLoadingSecret(true);
@@ -325,8 +429,8 @@ export default function CartPage() {
         id: item.id,
         name: item.name,
         quantity: item.quantity,
-        price: item.price, // client-side only; server resolves price
-        sellerAccountId: item.sellerAccountId, // may be undefined; server will omit if undefined
+        price: item.price,
+        sellerAccountId: item.sellerAccountId,
       }));
 
       const activeShippingOption = shippingOverride || shippingOption;
@@ -338,7 +442,6 @@ export default function CartPage() {
       console.log("📤 [checkout] sending request | effectiveEmail:", effectiveEmail, "| sellerEmail:", sellerEmail, "| items:", lineItems.length, "| shipping:", activeShippingOption.id);
       console.log("📤 [checkout] full shipping payload (raw):", JSON.stringify(activeShippingOption));
 
-      // Build normalized shipping payload expected by backend
       const shippingPayload = buildShippingPayload({
         shippingOption: activeShippingOption,
         addressForm,
@@ -346,7 +449,6 @@ export default function CartPage() {
         customerData,
       });
 
-      // Build items payload and ensure we don't send undefined sellerAccountId
       const itemsPayload = buildItemsPayload(lineItems);
 
       console.log("[checkout] final payload preview:", { items: itemsPayload, shipping: shippingPayload, email: effectiveEmail });
@@ -371,12 +473,22 @@ export default function CartPage() {
         return;
       }
 
-      if (data.client_secret) {
-        setClientSecret(data.client_secret);
+      if (data.paymentIntents && data.paymentIntents.length > 0) {
+        setPaymentIntents(data.paymentIntents);
         setCheckoutStep(3);
-        console.log("✅ Payment Intent created and ready");
+        console.log("✅ PaymentIntents created:", data.paymentIntents.length);
+      } else if (data.client_secret) {
+        setPaymentIntents([{
+          clientSecret: data.client_secret,
+          paymentIntentId: data.paymentIntentId,
+          amount: data.amount,
+          isPlatform: false,
+          sellerId: null,
+        }]);
+        setCheckoutStep(3);
+        console.log("✅ PaymentIntent created (legacy):", data.paymentIntentId);
       } else {
-        console.error("No client_secret returned:", data);
+        console.error("No payment intent returned:", data);
         alert("Feil ved initialisering av betaling. Prøv igjen.");
       }
     } catch (err) {
@@ -397,6 +509,13 @@ export default function CartPage() {
     window.location.href = "/hentested";
   };
 
+  const handleAllPaymentsComplete = useCallback(() => {
+    const lastPi = paymentIntents?.[paymentIntents.length - 1];
+    const piId = lastPi?.paymentIntentId;
+    const url = piId ? `/success?payment_intent=${encodeURIComponent(piId)}` : "/success";
+    window.location.href = url;
+  }, [paymentIntents]);
+
   const cardTransition = { duration: 0.4, ease: "easeInOut" };
   const containerStyle = {
     perspective: 2000,
@@ -407,7 +526,12 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-glacial-white via-arctic-mist to-glacial-white flex justify-center items-center px-6 py-10">
       <div style={containerStyle} className="flex justify-center w-full">
-        <AnimatePresence mode="wait">
+        {!hydrated ? (
+          <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl p-10 flex flex-col items-center justify-center border border-border-cool">
+            <p className="text-charcoal-text text-lg font-manrope font-bold">Laster handlekurv...</p>
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
           {checkoutStep === 1 && (
             <motion.div
               key="cart"
@@ -495,13 +619,13 @@ export default function CartPage() {
                   <div className="flex justify-between text-lg font-manrope font-bold mt-2">
                     <span>Frakt:</span>
                     <span className="text-norwegian-gold font-manrope">
-                      {(shippingOption.cost / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
+                      {(shippingOption.cost / 100).toFixed(2)} NOK
                     </span>
                   </div>
                   <div className="flex justify-between text-lg font-manrope font-bold mt-2 border-t border-border-cool pt-2">
                     <span>Total:</span>
                     <span className="text-norwegian-gold font-manrope">
-                      {(totalSum / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
+                      {((subtotal + shippingOption.cost) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} NOK
                     </span>
                   </div>
 
@@ -520,12 +644,30 @@ export default function CartPage() {
                 </div>
 
                 <div className="mt-10 space-y-4">
+                  {selectedPickupPoint && (
+                    <div className="rounded-xl border border-border-cool bg-white/90 p-4 text-sm text-charcoal-text">
+                      <p className="font-manrope font-bold mb-1">Valgt hentested:</p>
+                      <p>{selectedPickupPoint.name}</p>
+                      {selectedPickupPoint.address?.street && (
+                        <p>{selectedPickupPoint.address.street}</p>
+                      )}
+                      {(selectedPickupPoint.address?.postalCode || selectedPickupPoint.postalCode) && (
+                        <p>{selectedPickupPoint.address?.postalCode || selectedPickupPoint.postalCode} {selectedPickupPoint.address?.city || selectedPickupPoint.city}</p>
+                      )}
+                    </div>
+                  )}
                   <button
-                    onClick={() => handleProceedToPayment(null, selectedPickupPoint)}
+                    onClick={() => {
+                      if (selectedPickupPoint) {
+                        handleProceedToPayment(null, selectedPickupPoint);
+                      } else {
+                        handleProceedToShipping();
+                      }
+                    }}
                     disabled={(cartItems || []).length === 0 || isProcessing}
                     className="w-full bg-norwegian-gold text-ice-deep font-manrope font-bold py-3 rounded-lg hover:bg-yellow-300 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isProcessing ? "Behandler..." : "Gå til betaling →"}
+                    {isProcessing ? "Behandler..." : selectedPickupPoint ? "Gå til betaling →" : "Velg hentested →"}
                   </button>
                   <button
                     onClick={() => { emptyCart(); setCurrentItems([]); }}
@@ -547,7 +689,7 @@ export default function CartPage() {
             </div>
           )}
 
-          {checkoutStep === 3 && clientSecret && (
+          {checkoutStep === 3 && paymentIntents && (
             <motion.div
               key="payment"
               initial={{ opacity: 0, y: 10 }}
@@ -556,17 +698,20 @@ export default function CartPage() {
               transition={cardTransition}
               className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl p-8 md:p-10 border border-border-cool"
             >
-              <Elements stripe={stripePromise} options={{ clientSecret, locale: 'nb' }}>
+              <Elements stripe={stripePromise} options={{ clientSecret: paymentIntents[0]?.clientSecret, locale: 'nb' }}>
                 <CheckoutForm
-                  onBack={() => setCheckoutStep(1)}
+                  onBack={() => { setCheckoutStep(1); setPaymentIntents(null); }}
                   shippingOption={shippingOption}
                   items={cartItems}
+                  paymentIntents={paymentIntents}
+                  totalAmount={subtotal + shippingOption.cost}
+                  onAllPaymentsComplete={handleAllPaymentsComplete}
                 />
               </Elements>
             </motion.div>
           )}
 
-          {checkoutStep === 3 && !clientSecret && (
+          {checkoutStep === 3 && !paymentIntents && (
             <motion.div
               key="loading"
               className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-10 flex flex-col items-center justify-center border border-border-cool"
@@ -575,7 +720,8 @@ export default function CartPage() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      )}
     </div>
+  </div>
   );
 }

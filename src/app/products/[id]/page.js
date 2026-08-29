@@ -46,6 +46,7 @@ export default async function ProductDetail({ params, searchParams }) {
     currency: stripeProduct.currency,
     default_price_id: stripeProduct.default_price_id,
     creatorId: product.metadata?.creatorId || null,
+    sellerAccountId: product.metadata?.sellerAccountId || null,
     artist: product.name || "Unknown Artist",
   };
 
@@ -56,7 +57,7 @@ export default async function ProductDetail({ params, searchParams }) {
     <>
       <div className="bg-slate-50 px-4 pt-28 pb-12 sm:pt-32 sm:pb-16">
         <div className="mx-auto w-full max-w-6xl">
-          <div className="bg-white rounded-3xl shadow-none p-5 sm:p-8">
+          <div className="p-5 sm:p-8">
             {isEditing ? (
               <PostProduct currentProduct={completeProduct} />
             ) : (

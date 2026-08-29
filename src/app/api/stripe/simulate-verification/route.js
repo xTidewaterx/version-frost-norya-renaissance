@@ -25,54 +25,46 @@ export async function POST(req) {
 
     if (!isTestMode) {
       return new Response(
-        JSON.stringify({ error: "Simulated verification is only available in test mode." }),
+        JSON.stringify({ error: "Verification helper is only available in test mode." }),
         { status: 400 }
       );
     }
 
-    console.log("🔵 [simulate-verification] Creating test identity document for account:", accountId);
+    console.log("🔵 [simulate-verification] Checking verification status for account:", accountId);
 
-    // Create a test identity document file
-    const file = await stripe.files.create({
-      purpose: "identity_document",
-    });
+    // Express accounts cannot be verified server-side via API.
+    // The seller must complete Stripe-hosted onboarding (which includes KYC)
+    // and upload a test image in test mode.
+    // This endpoint returns the current account status so the frontend can
+    // determine whether verification is needed.
+    const account = await stripe.accounts.retrieve(accountId);
 
-    console.log("🔵 [simulate-verification] Created test file:", file.id);
-
-    // Attach the test file to the connected account
-    const updatedAccount = await stripe.accounts.update(accountId, {
-      individual: {
-        verification: {
-          document: {
-            front: file.id,
-            back: file.id,
-          },
-        },
-      },
-    });
-
-    console.log("✅ [simulate-verification] Account updated:", updatedAccount.id);
-    console.log("   charges_enabled:", updatedAccount.charges_enabled);
-    console.log("   payouts_enabled:", updatedAccount.payouts_enabled);
-    console.log("   requirements.currently_due:", updatedAccount.requirements?.currently_due || []);
-    console.log("   requirements.eventually_due:", updatedAccount.requirements?.eventually_due || []);
+    const isFullyVerified =
+      account.charges_enabled &&
+      account.payouts_enabled &&
+      account.details_submitted;
 
     return new Response(
       JSON.stringify({
         success: true,
-        accountId: updatedAccount.id,
-        charges_enabled: updatedAccount.charges_enabled,
-        payouts_enabled: updatedAccount.payouts_enabled,
-        requirements_currently_due: updatedAccount.requirements?.currently_due || [],
-        requirements_eventually_due: updatedAccount.requirements?.eventually_due || [],
-        fileId: file.id,
+        accountId: account.id,
+        fullyVerified: isFullyVerified,
+        charges_enabled: account.charges_enabled,
+        payouts_enabled: account.payouts_enabled,
+        details_submitted: account.details_submitted,
+        requirements_currently_due: account.requirements?.currently_due || [],
+        requirements_eventually_due: account.requirements?.eventually_due || [],
       }),
       { status: 200 }
     );
   } catch (err) {
     console.error("❌ [simulate-verification] error:", err);
     return new Response(
-      JSON.stringify({ error: err.message || "Failed to simulate verification" }),
+      JSON.stringify({
+        error: err.message || "Failed to check verification status",
+        type: err.type || "unknown",
+        code: err.code || "unknown",
+      }),
       { status: 500 }
     );
   }

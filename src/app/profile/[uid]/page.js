@@ -153,6 +153,7 @@ export default function ProfilePage() {
 
   const storage = getStorage();
   const chatSectionRef = useRef(null);
+  const isOwnProfile = currentUser?.uid === uid;
 
   // Track logged-in user
   useEffect(() => {
@@ -177,6 +178,26 @@ export default function ProfilePage() {
         setProfileUser(data);
         setProfileThemeId(data.profileThemeId || 'fjord');
         setBio(data.subtext || '');
+
+        if (isOwnProfile && currentUser) {
+          try {
+            const privateUserRef = doc(db, 'users', uid);
+            const privateSnap = await getDoc(privateUserRef);
+            if (privateSnap.exists()) {
+              const privateData = privateSnap.data();
+              setProfileUser((prev) => ({
+                ...prev,
+                email: privateData.email || prev.email || '',
+                phone: privateData.phone || prev.phone || '',
+                fullName: privateData.fullName || prev.fullName || prev.displayName || '',
+                role: privateData.role || prev.role || 'civilian',
+                stripeConnectId: privateData.stripeConnectId || prev.stripeConnectId || null,
+              }));
+            }
+          } catch (err) {
+            console.error('Failed to fetch private user data:', err);
+          }
+        }
 
         const showcaseRef = collection(db, 'publicUsers', uid, 'showcase');
         const qShowcase = query(showcaseRef, orderBy('createdAt', 'desc'), limit(1));
@@ -211,7 +232,7 @@ export default function ProfilePage() {
     }
 
     fetchProfile();
-  }, [uid]);
+  }, [uid, isOwnProfile, currentUser]);
 
   useEffect(() => {
     async function fetchCreatorProducts() {
@@ -302,8 +323,6 @@ export default function ProfilePage() {
 
     fetchDiscoverProfiles();
   }, [uid]);
-
-  const isOwnProfile = currentUser?.uid === uid;
 
   async function handlePostImageReplace(index, file) {
     if (!file || !isOwnProfile) return;
@@ -530,6 +549,8 @@ export default function ProfilePage() {
   };
   const defaults = createDefaultPosts();
   const visiblePosts = [...showcasePosts, ...defaults.slice(showcasePosts.length)].slice(0, 8);
+  const isSeller = profileUser.role === 'seller';
+  const profileEmail = isOwnProfile ? (profileUser.email || currentUser?.email || '') : (profileUser.email || '');
 
   return (
     <div className={`${spaceGrotesk.className} min-h-screen px-5 pb-24 pt-24 text-slate-900 sm:px-10 lg:px-14 lg:pt-32`} style={profileSurfaceStyle}>
@@ -547,14 +568,27 @@ export default function ProfilePage() {
                 className="h-24 w-24 shrink-0 rounded-full border-4 border-white object-cover shadow-md ring-1 ring-slate-200 sm:h-28 sm:w-28"
               />
               <div className="text-center sm:text-left">
-                <h1 className={`${cormorant.className} text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl`}>
-                  {displayName}
-                </h1>
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                  <h1 className={`${cormorant.className} text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl`}>
+                    {displayName}
+                  </h1>
+                  {isSeller && (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-700 ring-1 ring-amber-200">
+                      Seller Profile
+                    </span>
+                  )}
+                </div>
 
-                <div className="mt-3 flex items-center justify-center gap-4 text-sm text-slate-600 sm:justify-start">
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-sm text-slate-600 sm:justify-start">
                   <p>
                     Products <span className="font-semibold text-slate-900">{productCount}</span>
                   </p>
+                  {profileEmail && (
+                    <p className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-slate-400" />
+                      {profileEmail}
+                    </p>
+                  )}
                   <span
                     aria-label={`Palette ${activeTheme.name}`}
                     title={activeTheme.name}
@@ -908,10 +942,9 @@ export default function ProfilePage() {
                   );
                 })}
               </div>
-            </div>
-          )}
-        </section>
-      </div>
+            )}
+          </section>
+        </div>
 
 {/* Login Modal */}
       {showLogin && !currentUser && (

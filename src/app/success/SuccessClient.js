@@ -13,12 +13,13 @@ export default function SuccessClient() {
   const router = useRouter();
   const [status, setStatus] = useState("verifying");
   const [info, setInfo] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (status === "succeeded") {
       const timer = setTimeout(() => {
         router.push("/");
-      }, 4000);
+      }, 12000);
       return () => clearTimeout(timer);
     }
   }, [status, router]);
@@ -126,16 +127,52 @@ export default function SuccessClient() {
                 sendt snart.
               </p>
 
-              {trackingUrl && (
-                <div className="mt-6 rounded-xl border border-[#e4e4e7] bg-white/80 p-5 text-left shadow-sm">
-                  <p className="text-sm font-semibold text-[#5f5543]">Sporing</p>
-                  <p className="mt-1 text-lg font-bold text-[#2563eb]">
-                    <a href={trackingUrl} target="_blank" rel="noreferrer">
-                      {consignmentNumber}
-                    </a>
-                  </p>
-                  <p className="mt-2 text-sm text-[#5f5543]">
+              {consignmentNumber ? (
+                <div className="mt-8 w-full max-w-md space-y-4">
+                  <div className="rounded-2xl border border-[#e4e4e7] bg-white/90 p-6 shadow-sm">
+                    <p className="text-xs font-medium text-[#8a7b58] uppercase tracking-wider">
+                      Din sporing
+                    </p>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <p className="font-mono text-xl font-semibold text-[#2f2a23]">
+                        {consignmentNumber}
+                      </p>
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(consignmentNumber);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="rounded-lg border border-[#e4e4e7] bg-[#faf7f1] px-3 py-1.5 text-xs font-medium text-[#5f5543] transition-colors hover:bg-[#f0ebe2]"
+                      >
+                        {copied ? "Kopiert!" : "Kopier"}
+                      </button>
+                    </div>
+                  </div>
+                  <a
+                    href={trackingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block w-full rounded-xl bg-[#2f2a23] py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[#2f2a23]/80"
+                  >
+                    Spoor bestillingen
+                  </a>
+                  <p className="text-center text-sm text-[#5f5543]">
                     En ordrebekreftelse med sporingsinformasjon er sendt til e-posten din.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-8 w-full max-w-md space-y-4">
+                  <div className="rounded-2xl border border-[#e4e4e7] bg-white/90 p-6 shadow-sm">
+                    <p className="text-xs font-medium text-[#8a7b58] uppercase tracking-wider">
+                      Sporefter
+                    </p>
+                    <p className="mt-3 text-sm text-[#5f5543]">
+                      Bestillingen din er registrert og en sporingskode vil bli sendt til e-posten din så snart pakken er pakket og sendt.
+                    </p>
+                  </div>
+                  <p className="text-center text-sm text-[#5f5543]">
+                    Du vil bli omdirigert til forsiden om noen sekunder...
                   </p>
                 </div>
               )}
